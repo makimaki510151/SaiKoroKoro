@@ -1,0 +1,136 @@
+/** Built-in stages. `expect` is the shortest line, checked by the logic tests. */
+
+const F = {
+  /** 1 is on the south face, toward the default camera. One north roll brings it to the top. */
+  front: { top: 5, bottom: 2, east: 3, west: 4, south: 1, north: 6 },
+  /** Two east rolls from the opening pose: top is 6, bottom is 1. */
+  flipped: { top: 6, bottom: 1, east: 4, west: 3, south: 2, north: 5 },
+  /** Opening pose. Top is already 1. */
+  oneUp: { top: 1, bottom: 6, east: 3, west: 4, south: 2, north: 5 },
+  /** 1 is on the east face. */
+  right: { top: 2, bottom: 5, east: 1, west: 6, south: 3, north: 4 },
+};
+
+function box(w, h, holes = []) {
+  const blocked = new Set(holes.map(([x, z]) => `${x},${z}`));
+  const ground = [];
+  for (let z = 0; z < h; z += 1) {
+    for (let x = 0; x < w; x += 1) {
+      if (!blocked.has(`${x},${z}`)) ground.push({ x, z });
+    }
+  }
+  return ground;
+}
+
+function die(x, z, faces) {
+  return { x, z, faces: { ...faces } };
+}
+
+export const STAGES = [
+  {
+    id: 'stage-1',
+    name: 'ひところ',
+    blurb: '手前に見えている赤い1が上に来る向きへ、金の輪まで転がそう。',
+    hintDir: 'up',
+    moves: 5,
+    ground: box(3, 3),
+    goals: [{ x: 1, z: 0 }],
+    dice: [die(1, 1, F.front)],
+    expect: ['N:0'],
+  },
+  {
+    id: 'stage-2',
+    name: 'うらがえし',
+    blurb: '同じ方向に2回転がすと、上面は最初の裏面になります。右へ2回。',
+    failHint: '右へもう一度転がすと、裏面の1が上に出ます。',
+    hintDir: 'right',
+    moves: 4,
+    ground: box(3, 1),
+    goals: [{ x: 2, z: 0 }],
+    dice: [die(0, 0, F.flipped)],
+    expect: ['E:0', 'E:0'],
+  },
+  {
+    id: 'stage-3',
+    name: '穴をよける',
+    blurb: '上面はすでに1です。穴をよけて、1のままゴールまで運ぼう。',
+    failHint: '穴のマスには地面がありません。横へ回ってください。',
+    moves: 6,
+    ground: box(3, 3, [[0, 1]]),
+    goals: [{ x: 0, z: 2 }],
+    dice: [die(0, 0, F.oneUp)],
+    expect: ['E:0', 'S:0', 'S:0', 'W:0'],
+  },
+  {
+    id: 'stage-4',
+    name: 'いっしょ',
+    blurb: '選んだダイスはまとめて同じ方向へ転がせます。何個でも手数は1です。',
+    hintDir: 'up',
+    moves: 2,
+    ground: box(2, 2),
+    goals: [
+      { x: 0, z: 0 },
+      { x: 1, z: 0 },
+    ],
+    dice: [die(0, 1, F.front), die(1, 1, F.front)],
+    expect: ['N:0+1'],
+  },
+  {
+    id: 'stage-5',
+    name: 'ばらばら',
+    blurb: '同時に転がせるのは同じ方向だけです。落とさないよう、動かすダイスを選んで。',
+    failHint: '全部いっぺんに動かすと、どちらかが落ちます。タップで片方だけ選んでください。',
+    moves: 4,
+    ground: [
+      { x: 0, z: 0 },
+      { x: 0, z: 1 },
+      { x: 1, z: 1 },
+      { x: 2, z: 1 },
+    ],
+    goals: [
+      { x: 0, z: 0 },
+      { x: 1, z: 1 },
+    ],
+    dice: [die(0, 1, F.front), die(2, 1, F.right)],
+    expect: ['N:0', 'W:1'],
+  },
+  {
+    id: 'stage-6',
+    name: 'まわりこみ',
+    blurb: '右へまっすぐ2回だと、上面は裏面の6になります。回り込もう。',
+    failHint: '同じ方向の2回は裏返ります。別の道で1に戻してください。',
+    moves: 6,
+    ground: box(3, 3),
+    goals: [{ x: 2, z: 1 }],
+    dice: [die(0, 1, F.oneUp)],
+    expect: ['S:0', 'E:0', 'E:0', 'N:0'],
+  },
+  {
+    id: 'stage-7',
+    name: 'ならべて',
+    blurb: '手前の赤い1は、横に転がしても前を向いたままです。ゴールで上に向けよう。',
+    moves: 7,
+    ground: box(4, 3),
+    goals: [
+      { x: 3, z: 0 },
+      { x: 3, z: 2 },
+    ],
+    dice: [die(0, 1, F.front), die(1, 1, F.front)],
+    expect: ['S:1', 'E:0', 'E:0+1', 'E:0+1', 'N:0'],
+  },
+  {
+    id: 'stage-8',
+    name: 'ぎりぎり',
+    blurb: '手数にほとんど余裕がありません。戻すでやり直せます。',
+    moves: 5,
+    ground: box(4, 2),
+    goals: [
+      { x: 3, z: 0 },
+      { x: 3, z: 1 },
+    ],
+    dice: [die(0, 1, F.right), die(1, 1, F.front)],
+    expect: ['E:0+1', 'E:0+1', 'N:1', 'E:0'],
+  },
+];
+
+export const FRONT_FACES = { ...F.front };
