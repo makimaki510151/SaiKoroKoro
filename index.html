@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ja" translate="no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#12100e" />
+    <meta name="google" content="notranslate" />
+    <meta name="description" content="サイコロコロ。盤面のダイスを転がし、ゴールの上で上面をすべて1にするパズル。" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <title>サイコロコロ</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23f4ecdf'/%3E%3Ccircle cx='32' cy='32' r='8' fill='%23c4372a'/%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <div id="app" data-scene="title">
+      <div id="view"><canvas id="c"></canvas></div>
+      <div id="layer">
+        <section id="scene-title" class="scene">
+          <div class="title-copy">
+            <p class="eyebrow">上面を、いちに</p>
+            <h1 class="logo">サイコロ<em>コロ</em></h1>
+            <p class="lede">盤面のダイスを転がし、ゴールの上で<br />すべての上面を 1 にする。</p>
+            <div class="title-actions">
+              <button type="button" class="btn primary" id="title-play">あそぶ</button>
+              <button type="button" class="btn" id="title-edit">レベルデザイン</button>
+              <button type="button" class="btn ghost" id="title-help">あそびかた</button>
+              <button type="button" class="btn ghost" id="title-settings">設定</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="scene-help" class="scene">
+          <div class="dock dock-center">
+            <div class="paper sheet narrow">
+              <header class="sheet-head">
+                <button type="button" class="btn tiny" id="help-back">戻る</button>
+                <h1>あそびかた</h1>
+              </header>
+              <div class="sheet-body prose">
+                <p>ゴールの金の輪の上で、すべてのダイスの上面を赤い 1 にするとクリアです。</p>
+                <div class="rule-demo" aria-hidden="true">
+                  <div class="face f6"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+                  <span>同じ方向に2回</span>
+                  <div class="face f1"><i></i></div>
+                </div>
+                <p>同じ方向に2回転がすと、上面は最初の裏面になります。</p>
+                <ul>
+                  <li>ダイスをタップして選びます。最初は全部選ばれています。</li>
+                  <li>方向ボタン、スワイプ、矢印キーで、選んだダイスを同じ方向へ転がします。</li>
+                  <li>複数を同時に転がしても、手数は 1 です。別々の方向へは同時に転がせません。</li>
+                  <li>地面のないマスへ転がすと落下して失敗です。</li>
+                  <li>残り手数が尽きても揃わなければ失敗です。戻すで1手返せます。</li>
+                  <li>視点ボタンで、斜め上からの見る向きを切り替えられます。</li>
+                </ul>
+                <h2>レベルデザイン</h2>
+                <p>地面、ゴール、ダイスの初期配置と制限手数を自由に作れます。出力できるのは、その初期配置から実際にクリアしたステージだけです。</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="scene-settings" class="scene">
+          <div class="dock dock-center">
+            <div class="paper sheet narrow">
+              <header class="sheet-head">
+                <button type="button" class="btn tiny" id="settings-back">戻る</button>
+                <h1>設定</h1>
+              </header>
+              <div class="sheet-body prose">
+                <label class="field">効果音
+                  <input id="set-volume" type="range" min="0" max="100" value="70" />
+                </label>
+                <label class="check"><input id="set-numbers" type="checkbox" /> 上面の数字を表示</label>
+                <label class="check"><input id="set-reduced" type="checkbox" /> ゆれを減らす</label>
+                <label class="check"><input id="set-flip" type="checkbox" /> 最初の視点を反対側に</label>
+                <label class="check" id="vibrate-row"><input id="set-vibrate" type="checkbox" /> 振動</label>
+                <button type="button" class="btn tiny" id="set-wipe">記録とマイステージを消す</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="scene-stages" class="scene">
+          <div class="dock dock-left">
+            <div class="paper sheet">
+              <header class="sheet-head">
+                <button type="button" class="btn tiny" id="stages-back">タイトル</button>
+                <h1>ステージ</h1>
+              </header>
+              <div id="stage-list" class="sheet-body"></div>
+              <footer class="sheet-foot">
+                <button type="button" class="btn primary wide" id="stage-start">このステージをあそぶ</button>
+                <button type="button" class="btn tiny" id="stages-import">ファイルをあそぶ</button>
+              </footer>
+            </div>
+          </div>
+        </section>
+
+        <section id="scene-play" class="scene">
+          <header class="hud-top">
+            <button type="button" class="btn tiny" id="play-back">ステージ</button>
+            <div class="hud-title">
+              <strong id="play-name"></strong>
+              <p id="play-blurb"></p>
+            </div>
+            <div id="play-moves" class="moves">残り 0</div>
+          </header>
+          <footer class="hud-bottom">
+            <div class="hud-actions">
+              <span id="play-selected">選択 0</span>
+              <button type="button" class="btn tiny" id="play-all">すべて</button>
+              <button type="button" class="btn tiny" id="play-none">解除</button>
+              <button type="button" class="btn tiny" id="play-undo">戻す</button>
+              <button type="button" class="btn tiny" id="play-restart">最初から</button>
+              <button type="button" class="btn tiny" id="play-cam">視点</button>
+            </div>
+            <div class="dpad" id="play-dpad">
+              <button type="button" data-dir="up" aria-label="奥へ転がす">↑</button>
+              <button type="button" data-dir="left" aria-label="左へ転がす">←</button>
+              <button type="button" data-dir="right" aria-label="右へ転がす">→</button>
+              <button type="button" data-dir="down" aria-label="手前へ転がす">↓</button>
+            </div>
+            <p class="keys">クリックで選択 · 矢印キーか WASD で転がす · U で戻す</p>
+          </footer>
+        </section>
+
+        <section id="scene-editor" class="scene">
+          <header class="hud-top">
+            <button type="button" class="btn tiny" id="ed-back">タイトル</button>
+            <div class="hud-title"><strong>レベルデザイン</strong></div>
+            <button type="button" class="btn tiny" id="ed-cam">視点</button>
+          </header>
+          <div class="dock dock-right">
+            <div class="paper sheet">
+              <div class="sheet-body prose">
+                <div class="row">
+                  <button type="button" class="btn tiny" id="ed-undo">戻す</button>
+                  <button type="button" class="btn tiny" id="ed-reset">初期化</button>
+                </div>
+                <label class="field">名前
+                  <input id="ed-name" type="text" maxlength="24" autocomplete="off" />
+                </label>
+                <div class="stepper">
+                  <span>制限手数</span>
+                  <button type="button" id="ed-mov-dec" aria-label="手数を減らす">−</button>
+                  <strong id="ed-mov">6</strong>
+                  <button type="button" id="ed-mov-inc" aria-label="手数を増やす">＋</button>
+                </div>
+                <div class="tools" id="ed-tools">
+                  <button type="button" data-tool="ground">地面</button>
+                  <button type="button" data-tool="goal">ゴール</button>
+                  <button type="button" data-tool="die">ダイス</button>
+                  <button type="button" data-tool="roll">転がす</button>
+                  <button type="button" data-tool="face">向き</button>
+                </div>
+                <p id="ed-tool-help"></p>
+                <div class="row" id="ed-select-row">
+                  <button type="button" class="btn tiny" id="ed-all">すべて</button>
+                  <button type="button" class="btn tiny" id="ed-none">解除</button>
+                </div>
+                <div class="dpad" id="ed-dpad" hidden>
+                  <button type="button" data-dir="up" aria-label="奥">↑</button>
+                  <button type="button" data-dir="left" aria-label="左">←</button>
+                  <button type="button" data-dir="right" aria-label="右">→</button>
+                  <button type="button" data-dir="down" aria-label="手前">↓</button>
+                </div>
+                <button type="button" class="btn primary wide" id="ed-test">最初からテスト</button>
+                <p id="ed-status"></p>
+                <div class="row">
+                  <button type="button" class="btn tiny" id="ed-export" disabled>出力</button>
+                  <button type="button" class="btn tiny" id="ed-import">読み込む</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div id="modal" class="modal" hidden>
+          <div class="paper modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+            <h2 id="modal-title"></h2>
+            <p id="modal-text"></p>
+            <div id="modal-actions" class="modal-actions"></div>
+          </div>
+        </div>
+        <div id="toast" role="status"></div>
+      </div>
+      <input id="file-input" type="file" accept="application/json,.json" hidden />
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
