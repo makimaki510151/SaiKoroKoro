@@ -109,7 +109,16 @@ button:focus-visible, input:focus-visible {
 
 .btn.ready { background: #8a6424; color: #fff8ea; }
 
+#scene-title::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(18, 16, 14, 0.78) 0%, rgba(18, 16, 14, 0.42) 38%, rgba(18, 16, 14, 0.08) 68%);
+  pointer-events: none;
+}
+
 .title-copy {
+  position: relative;
   max-width: min(760px, 100%);
   padding: calc(32px + env(safe-area-inset-top)) 22px 24px;
   pointer-events: none;
@@ -486,6 +495,10 @@ input[type="range"] { width: 100%; accent-color: var(--cinnabar); }
   .dock-right { max-height: 50%; }
 
   .logo { letter-spacing: 0; }
+
+  #scene-title::before {
+    background: linear-gradient(180deg, rgba(18, 16, 14, 0.82) 0%, rgba(18, 16, 14, 0.46) 34%, rgba(18, 16, 14, 0.05) 62%);
+  }
 
   .keys { display: none; }
 }

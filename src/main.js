@@ -1,5 +1,3 @@
-import './style.css';
-
 import { FRONT_FACES, STAGES } from './levels.js';
 import {
   canonical,
@@ -60,6 +58,7 @@ function write() {
 function applySettings() {
   audio.setVolume(Number(settings.volume) || 0);
   document.body.classList.toggle('reduce', !!settings.reduced);
+  view.setReduced(!!settings.reduced);
   view.setFlip(!!settings.flip);
   view.setNumbers(!!settings.numbers);
   $('set-volume').value = String(Math.round((settings.volume ?? 0.7) * 100));

@@ -1,7 +1,10 @@
 import * as THREE from 'three';
+import { DIR_DELTA, cloneFaces, identityFaces, rollFaces } from './logic.js';
 import { ROLL_TURN, quaternionForFaces } from './orient.js';
 
 const DIE_Y = 0.5;
+const TITLE_ROLL = 0.72;
+const TITLE_PAUSE = 0.16;
 const AZIMUTHS = [0.58, 0.58 + Math.PI / 2, 0.58 + Math.PI, 0.58 + (3 * Math.PI) / 2];
 
 const PIP = {
@@ -187,6 +190,8 @@ export function createView(canvas) {
   let dist = 8;
   let insets = { top: 0, bottom: 0, left: 0, right: 0 };
   let titleTime = 0;
+  let titleActors = [];
+  let reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   let camAnim = null;
   let lookTarget = new THREE.Vector3();
   const basis = new THREE.Object3D();
@@ -285,23 +290,136 @@ export function createView(canvas) {
     while (group.children.length) group.remove(group.children[0]);
   }
 
-  function buildTitle() {
-    clearGroup(title);
-    const platform = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.22, 1.7), tileMat);
-    platform.position.y = -0.11;
-    platform.receiveShadow = true;
-    platform.castShadow = true;
+  function makeTitleDie() {
     const anchor = new THREE.Group();
-    anchor.position.y = DIE_Y;
     const spin = new THREE.Group();
-    const mesh = new THREE.Mesh(dieGeo, faceOrder.map((name) => pipMat[name]));
+    const mats = faceOrder.map((name) => pipMat[name].clone());
+    const mesh = new THREE.Mesh(dieGeo, mats);
+    mesh.scale.setScalar(0.98);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     const edges = new THREE.LineSegments(edgeGeo, edgeMat);
+    edges.scale.setScalar(0.98);
     spin.add(mesh, edges);
-    anchor.add(spin);
-    title.add(platform, anchor);
-    title.userData.spin = spin;
+    const shadow = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.86, 0.86),
+      new THREE.MeshBasicMaterial({ map: blob, transparent: true, depthWrite: false }),
+    );
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.y = -DIE_Y + 0.014;
+    shadow.raycast = () => {};
+    anchor.add(spin, shadow);
+    return { anchor, spin };
+  }
+
+  function titlePivot(x, z, dir) {
+    const pivot = new THREE.Vector3(x, 0, z);
+    if (dir === 'E') pivot.x += 0.5;
+    else if (dir === 'W') pivot.x -= 0.5;
+    else if (dir === 'S') pivot.z += 0.5;
+    else pivot.z -= 0.5;
+    return pivot;
+  }
+
+  function restTitle(actor) {
+    actor.anchor.position.set(actor.x, DIE_Y, actor.z);
+    actor.spin.quaternion.copy(quaternionForFaces(actor.faces));
+  }
+
+  function rollTitle(actor, u) {
+    const turn = ROLL_TURN[actor.dir];
+    const pivot = titlePivot(actor.x, actor.z, actor.dir);
+    const q = new THREE.Quaternion().setFromAxisAngle(turn.axis, turn.angle * u);
+    const offset = new THREE.Vector3(actor.x, DIE_Y, actor.z).sub(pivot).applyQuaternion(q);
+    actor.anchor.position.copy(pivot).add(offset);
+    actor.spin.quaternion.copy(q).multiply(quaternionForFaces(actor.faces));
+  }
+
+  function commitTitle(actor) {
+    const delta = DIR_DELTA[actor.dir];
+    actor.x += delta.x;
+    actor.z += delta.z;
+    actor.faces = rollFaces(actor.faces, actor.dir);
+    actor.cursor = (actor.cursor + 1) % actor.path.length;
+    actor.dir = actor.path[actor.cursor];
+  }
+
+  function updateTitle(dt) {
+    for (const actor of titleActors) {
+      if (reducedMotion) {
+        restTitle(actor);
+        continue;
+      }
+      actor.t += dt;
+      if (actor.t < 0) {
+        restTitle(actor);
+        continue;
+      }
+      if (actor.phase === 'pause') {
+        restTitle(actor);
+        if (actor.t >= TITLE_PAUSE) {
+          actor.t = 0;
+          actor.phase = 'roll';
+        }
+      } else {
+        const u = Math.min(1, actor.t / TITLE_ROLL);
+        rollTitle(actor, smooth(u));
+        if (actor.t >= TITLE_ROLL) {
+          commitTitle(actor);
+          actor.phase = 'pause';
+          actor.t = 0;
+          restTitle(actor);
+        }
+      }
+    }
+  }
+
+  function buildTitle() {
+    clearGroup(title);
+    titleActors = [];
+    for (let z = -1; z <= 4; z += 1) {
+      for (let x = -1; x <= 6; x += 1) {
+        const tile = new THREE.Mesh(tileGeo, tileMat);
+        tile.position.set(x, -0.11, z);
+        tile.receiveShadow = true;
+        tile.castShadow = true;
+        title.add(tile);
+      }
+    }
+    const routes = [
+      {
+        x: 0,
+        z: 3,
+        delay: 0,
+        faces: identityFaces(),
+        path: ['E', 'E', 'E', 'E', 'E', 'N', 'N', 'N', 'W', 'W', 'W', 'W', 'W', 'S', 'S', 'S'],
+      },
+      {
+        x: 2,
+        z: 2,
+        delay: 0.55,
+        faces: rollFaces(identityFaces(), 'E'),
+        path: ['E', 'N', 'W', 'S'],
+      },
+    ];
+    for (const route of routes) {
+      const die = makeTitleDie();
+      title.add(die.anchor);
+      const actor = {
+        ...die,
+        x: route.x,
+        z: route.z,
+        faces: cloneFaces(route.faces),
+        path: route.path,
+        cursor: 0,
+        dir: route.path[0],
+        phase: 'pause',
+        t: -route.delay,
+      };
+      restTitle(actor);
+      titleActors.push(actor);
+    }
+    title.userData.ready = true;
   }
 
   function kindOf(object) {
@@ -439,15 +557,27 @@ export function createView(canvas) {
     const w = canvas.clientWidth || window.innerWidth || 1;
     const h = canvas.clientHeight || window.innerHeight || 1;
     const portrait = h > w * 1.05;
-    if (portrait) {
-      title.position.set(0.05, -1.15, 0.15);
-      camera.position.set(1.85, 2.55, 3.7);
-      camera.lookAt(0.05, -0.15, 0.05);
-    } else {
-      title.position.set(1.7, 0, 0.35);
-      camera.position.set(1.35, 1.85, 3.35);
-      camera.lookAt(-0.45, 0.55, 0.05);
-    }
+    title.position.set(0, 0, 0);
+    const focus = portrait
+      ? new THREE.Vector3(2.5, 0, 0.15)
+      : new THREE.Vector3(0.85, 0.1, 1.45);
+    const dist = portrait ? 14.2 : 12.4;
+    const offset = new THREE.Vector3(0.62, 0.95, 1).normalize().multiplyScalar(dist);
+    camera.position.copy(focus).add(offset);
+    lookTarget.copy(focus);
+    camera.lookAt(lookTarget);
+    const boardCenter = new THREE.Vector3(2.5, 0, 1.5);
+    const s = 12;
+    const cam = sun.shadow.camera;
+    cam.left = -s;
+    cam.right = s;
+    cam.top = s;
+    cam.bottom = -s;
+    cam.near = 0.5;
+    cam.far = 48;
+    cam.updateProjectionMatrix();
+    sun.position.set(boardCenter.x + 5.2, 12, boardCenter.z + 3.4);
+    sun.target.position.copy(boardCenter);
   }
 
   function showTitle() {
@@ -455,7 +585,7 @@ export function createView(canvas) {
     camAnim = null;
     board.visible = false;
     title.visible = true;
-    if (!title.userData.spin) buildTitle();
+    if (!title.userData.ready) buildTitle();
     frameTitle();
   }
 
@@ -559,10 +689,7 @@ export function createView(canvas) {
   function loop() {
     const dt = clock.getDelta();
     titleTime += dt;
-    if (mode === 'title' && title.userData.spin) {
-      const yaw = Math.sin(titleTime * 0.45) * 0.55;
-      title.userData.spin.rotation.set(0.42, yaw, 0);
-    }
+    if (mode === 'title') updateTitle(dt);
     if (camAnim) {
       camAnim.t = Math.min(1, camAnim.t + dt / 0.45);
       const k = smooth(camAnim.t);
@@ -599,6 +726,9 @@ export function createView(canvas) {
     shake,
     setNumbers(v) {
       showNumbers = v;
+    },
+    setReduced(v) {
+      reducedMotion = !!v || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     },
     setFlip(v) {
       flip = v;
