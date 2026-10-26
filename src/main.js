@@ -90,19 +90,51 @@ function go(next) {
   if (next === 'editor') presentEditor(true);
 }
 
+function measureDock(el, fallback) {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const box = el?.getBoundingClientRect();
+  if (!box || box.width < 8 || box.height < 8) return fallback;
+  const gap = 12;
+  if (box.width > w * 0.72 && box.top > h * 0.25) {
+    return { top: 16, bottom: Math.ceil(h - box.top) + gap, left: gap, right: gap };
+  }
+  if (box.left < w * 0.25) {
+    return { top: 16, bottom: gap, left: Math.ceil(box.right) + gap, right: gap };
+  }
+  return { top: 16, bottom: gap, left: gap, right: Math.ceil(w - box.left) + gap };
+}
+
 function insets() {
   const narrow = window.innerWidth < 880;
+  const w = window.innerWidth;
   const h = window.innerHeight;
-  if (scene === 'play') return { top: 78, bottom: h < 740 ? 236 : 214, left: 0, right: 0 };
+  if (scene === 'play') {
+    const topBox = document.querySelector('#scene-play .hud-top')?.getBoundingClientRect();
+    const panel = document.querySelector('#scene-play .hud-bottom')?.getBoundingClientRect();
+    const top = topBox && topBox.bottom > 0 ? Math.ceil(topBox.bottom) + 8 : 78;
+    const side = window.matchMedia('(max-width: 879px) and (orientation: landscape)').matches;
+    if (panel && panel.width > 8) {
+      if (side) return { top, bottom: 12, left: 12, right: Math.ceil(w - panel.left) + 12 };
+      return { top, bottom: Math.ceil(h - panel.top) + 10, left: 8, right: 8 };
+    }
+    return { top: 78, bottom: narrow ? 300 : 214, left: 0, right: 0 };
+  }
   if (scene === 'editor') {
-    return narrow
-      ? { top: 64, bottom: Math.round(h * 0.5), left: 0, right: 0 }
-      : { top: 12, bottom: 12, left: 0, right: 400 };
+    return measureDock(
+      document.querySelector('#scene-editor .dock'),
+      narrow
+        ? { top: 64, bottom: Math.round(h * 0.5), left: 0, right: 0 }
+        : { top: 12, bottom: 12, left: 0, right: 400 },
+    );
   }
   if (scene === 'stages') {
-    return narrow
-      ? { top: 8, bottom: Math.round(h * 0.6), left: 0, right: 0 }
-      : { top: 12, bottom: 12, left: 468, right: 12 };
+    return measureDock(
+      document.querySelector('#scene-stages .dock'),
+      narrow
+        ? { top: 8, bottom: Math.round(h * 0.6), left: 0, right: 0 }
+        : { top: 12, bottom: 12, left: 468, right: 12 },
+    );
   }
   return { top: 0, bottom: 0, left: 0, right: 0 };
 }
@@ -343,8 +375,8 @@ function startSession(level, testing) {
   hideModal();
   go('play');
   $('play-back').textContent = testing ? '配置へ' : 'ステージ';
-  present(playBoard(), session.selected, null);
   updateHud();
+  present(playBoard(), session.selected, null);
 }
 
 function updateHud() {
@@ -430,8 +462,8 @@ function restart() {
   session.hint = !!session.level.hintDir;
   hideModal();
   boardToken = '';
-  present(playBoard(), session.selected, null);
   updateHud();
+  present(playBoard(), session.selected, null);
 }
 
 function undoPlay() {

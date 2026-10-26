@@ -352,14 +352,13 @@ button:focus-visible, input:focus-visible {
   margin: 4px auto 0;
   pointer-events: none;
   transform: rotate(26deg);
+  flex: none;
 }
 
 .dpad button {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 58px;
-  height: 58px;
+  width: 29.6%;
+  height: 29.6%;
   border: 0;
   border-radius: 50%;
   background: #f4ecdf;
@@ -368,12 +367,13 @@ button:focus-visible, input:focus-visible {
   font-weight: 700;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
   pointer-events: auto;
+  transform: translate(-50%, -50%);
 }
 
-.dpad [data-dir="up"] { transform: translate(-50%, -50%) translate(0, -64px); }
-.dpad [data-dir="right"] { transform: translate(-50%, -50%) translate(64px, 0); }
-.dpad [data-dir="down"] { transform: translate(-50%, -50%) translate(0, 64px); }
-.dpad [data-dir="left"] { transform: translate(-50%, -50%) translate(-64px, 0); }
+.dpad [data-dir="up"] { left: 50%; top: 17.3%; }
+.dpad [data-dir="right"] { left: 82.7%; top: 50%; }
+.dpad [data-dir="down"] { left: 50%; top: 82.7%; }
+.dpad [data-dir="left"] { left: 17.3%; top: 50%; }
 
 .dpad button.pulse { animation: goldpulse 1.1s ease-in-out infinite; }
 
@@ -487,7 +487,7 @@ input[type="range"] { width: 100%; accent-color: var(--cinnabar); }
 
 #app[data-scene="play"] #toast { bottom: calc(230px + env(safe-area-inset-bottom)); }
 
-@media (max-width: 879px) {
+@media (max-width: 879px) and (orientation: portrait) {
   .dock-left, .dock-right {
     top: auto;
     left: 0;
@@ -503,11 +503,97 @@ input[type="range"] { width: 100%; accent-color: var(--cinnabar); }
   .logo { letter-spacing: 0; }
 
   .keys { display: none; }
-}
 
-@media (max-width: 879px) and (orientation: portrait) {
   #scene-title::before {
     background: linear-gradient(180deg, rgba(18, 16, 14, 0.82) 0%, rgba(18, 16, 14, 0.46) 34%, rgba(18, 16, 14, 0.05) 62%);
+  }
+
+  #scene-play .hud-bottom {
+    padding-bottom: calc(18px + env(safe-area-inset-bottom));
+  }
+
+  #scene-play .hud-actions { gap: 8px; }
+
+  #scene-play .hud-actions .btn {
+    min-height: 48px;
+    padding: 0 16px;
+    font-size: 16px;
+  }
+
+  #scene-play .dpad {
+    width: min(260px, 68vw);
+    height: min(260px, 68vw);
+    margin-top: 10px;
+  }
+
+  #scene-play .dpad button { font-size: 28px; }
+
+  #app[data-scene="play"] #toast { bottom: calc(300px + env(safe-area-inset-bottom)); }
+}
+
+@media (max-width: 879px) and (orientation: landscape) {
+  .logo { letter-spacing: 0; }
+
+  .keys { display: none; }
+
+  .dock-left, .dock-right {
+    top: 0;
+    bottom: 0;
+    width: min(300px, 46vw);
+    max-height: none;
+    padding: 8px;
+  }
+
+  .dock-left { left: 0; right: auto; }
+
+  .dock-right { right: 0; left: auto; }
+
+  .sheet-head { padding: 8px 12px; }
+
+  .sheet-head h1 { font-size: 22px; }
+
+  #scene-play .hud-bottom {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: auto;
+    width: max-content;
+    max-width: none;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    padding: 0 8px calc(8px + env(safe-area-inset-bottom)) 0;
+  }
+
+  #scene-play .hud-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    width: min(156px, 24vw);
+    max-width: none;
+  }
+
+  #scene-play .hud-actions .btn {
+    min-height: 36px;
+    padding: 0 8px;
+    font-size: 13px;
+  }
+
+  #play-selected { grid-column: 1 / -1; text-align: center; }
+
+  #scene-play .dpad {
+    width: min(196px, 34vw, calc(100vh - 28px));
+    height: min(196px, 34vw, calc(100vh - 28px));
+    margin: 0;
+  }
+
+  #scene-play .dpad button { font-size: 20px; }
+
+  #app[data-scene="play"] #toast {
+    left: 28%;
+    bottom: calc(12px + env(safe-area-inset-bottom));
   }
 }
 
@@ -521,14 +607,13 @@ input[type="range"] { width: 100%; accent-color: var(--cinnabar); }
 }
 
 @media (max-height: 700px) {
-  .dpad { width: 176px; height: 176px; }
-  .dpad button { width: 52px; height: 52px; font-size: 20px; }
-  .dpad [data-dir="up"] { transform: translate(-50%, -50%) translate(0, -56px); }
-  .dpad [data-dir="right"] { transform: translate(-50%, -50%) translate(56px, 0); }
-  .dpad [data-dir="down"] { transform: translate(-50%, -50%) translate(0, 56px); }
-  .dpad [data-dir="left"] { transform: translate(-50%, -50%) translate(-56px, 0); }
   .title-copy { padding-top: calc(16px + env(safe-area-inset-top)); }
   .logo { font-size: clamp(36px, 11vw, 68px); }
+}
+
+@media (max-height: 700px) and (min-width: 880px) {
+  .dpad { width: 176px; height: 176px; }
+  .dpad button { font-size: 20px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
