@@ -568,20 +568,115 @@ export function createView(canvas) {
     board.visible = true;
   }
 
+  function inkRight(root) {
+    if (!root) return 0;
+    const range = document.createRange();
+    let right = 0;
+    for (const node of root.querySelectorAll('.eyebrow, .logo, .lede')) {
+      range.selectNodeContents(node);
+      for (const rect of range.getClientRects()) right = Math.max(right, rect.right);
+    }
+    for (const button of root.querySelectorAll('button')) {
+      right = Math.max(right, button.getBoundingClientRect().right);
+    }
+    return right;
+  }
+
   function frameTitle() {
     const w = canvas.clientWidth || window.innerWidth || 1;
     const h = canvas.clientHeight || window.innerHeight || 1;
-    const portrait = h > w * 1.05;
     title.position.set(0, 0, 0);
-    const focus = portrait
-      ? new THREE.Vector3(2.5, 0, 0.15)
-      : new THREE.Vector3(0.85, 0.1, 1.45);
-    const dist = portrait ? 14.2 : 12.4;
-    const offset = new THREE.Vector3(0.62, 0.95, 1).normalize().multiplyScalar(dist);
-    camera.position.copy(focus).add(offset);
-    lookTarget.copy(focus);
-    camera.lookAt(lookTarget);
-    const boardCenter = new THREE.Vector3(2.5, 0, 1.5);
+    camera.aspect = w / Math.max(1, h);
+    camera.updateProjectionMatrix();
+    const boardCenter = new THREE.Vector3(2.5, 0.2, 1.5);
+    const dir = new THREE.Vector3(0.62, 0.95, 1).normalize();
+    const corners = [];
+    for (const x of [-1.7, 6.7]) {
+      for (const z of [-1.7, 4.7]) {
+        corners.push(new THREE.Vector3(x, 0, z), new THREE.Vector3(x, 1.25, z));
+      }
+    }
+    const copy = document.querySelector('.title-copy');
+    const landscape = w > h;
+    const desktop = landscape && w >= 900;
+    // 横画面は文字ブロックの右、縦画面はボタンの下に盤面を収める。
+    let topLimit = 0.78;
+    let bottomLimit = -0.9;
+    let leftLimit = -0.9;
+    let rightLimit = 0.92;
+    let dist = desktop ? 13 : 16;
+    let fill = false;
+    if (desktop) {
+      leftLimit = -0.02;
+    } else if (landscape) {
+      const ink = inkRight(copy);
+      const px = Math.min(Math.max(ink, w * 0.32) + 18, w * 0.7);
+      leftLimit = (2 * px) / w - 1;
+      rightLimit = 0.9;
+      if (rightLimit - leftLimit < 0.52) leftLimit = rightLimit - 0.52;
+      topLimit = 0.86;
+      bottomLimit = -0.86;
+      dist = 12;
+      fill = true;
+    } else {
+      const copyBottom = copy ? copy.getBoundingClientRect().bottom : h * 0.38;
+      topLimit = 1 - (2 * Math.min(copyBottom + 8, h * 0.62)) / h;
+    }
+    let shiftX = 0;
+    let shiftY = 0;
+
+    function place(nextDist, nextShiftX, nextShiftY) {
+      const focus = boardCenter.clone();
+      camera.position.copy(focus).addScaledVector(dir, nextDist);
+      camera.up.set(0, 1, 0);
+      camera.lookAt(focus);
+      camera.updateMatrixWorld();
+      const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+      const up = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+      const pan = right.multiplyScalar(nextShiftX).add(up.multiplyScalar(nextShiftY));
+      camera.position.add(pan);
+      const look = focus.add(pan);
+      lookTarget.copy(look);
+      camera.lookAt(lookTarget);
+      camera.updateMatrixWorld();
+    }
+
+    function bounds() {
+      let minX = Infinity;
+      let maxX = -Infinity;
+      let minY = Infinity;
+      let maxY = -Infinity;
+      for (const corner of corners) {
+        const p = corner.clone().project(camera);
+        minX = Math.min(minX, p.x);
+        maxX = Math.max(maxX, p.x);
+        minY = Math.min(minY, p.y);
+        maxY = Math.max(maxY, p.y);
+      }
+      return { minX, maxX, minY, maxY };
+    }
+
+    for (let i = 0; i < 6; i += 1) {
+      place(dist, shiftX, shiftY);
+      const box = bounds();
+      const allowX = Math.max(0.45, rightLimit - leftLimit);
+      const allowY = Math.max(0.4, topLimit - bottomLimit);
+      const spanX = box.maxX - box.minX;
+      const spanY = box.maxY - box.minY;
+      const need = Math.max(spanX / allowX, spanY / allowY);
+      if (fill) dist *= Math.pow(need / 0.94, 0.8);
+      else if (need > 1.01) dist *= need;
+      const vFov = (camera.fov * Math.PI) / 180;
+      const worldH = 2 * Math.tan(vFov / 2) * dist;
+      const worldW = worldH * camera.aspect;
+      const midX = (box.minX + box.maxX) / 2;
+      const midY = (box.minY + box.maxY) / 2;
+      const goalX = (leftLimit + rightLimit) / 2;
+      const goalY = landscape ? (bottomLimit + topLimit) / 2 : topLimit - spanY / 2 - 0.04;
+      shiftX += (midX - goalX) * worldW / 2;
+      shiftY += (midY - goalY) * worldH / 2;
+    }
+    place(dist, shiftX, shiftY);
     const s = 12;
     const cam = sun.shadow.camera;
     cam.left = -s;
@@ -589,7 +684,7 @@ export function createView(canvas) {
     cam.top = s;
     cam.bottom = -s;
     cam.near = 0.5;
-    cam.far = 48;
+    cam.far = dist + 30;
     cam.updateProjectionMatrix();
     sun.position.set(boardCenter.x + 5.2, 12, boardCenter.z + 3.4);
     sun.target.position.copy(boardCenter);
@@ -617,52 +712,6 @@ export function createView(canvas) {
       if (data.kind === 'cell') return { kind: 'cell', x: data.x, z: data.z };
     }
     return null;
-  }
-
-  const PAD_WORLD = {
-    N: new THREE.Vector3(0, 0, -1),
-    S: new THREE.Vector3(0, 0, 1),
-    E: new THREE.Vector3(1, 0, 0),
-    W: new THREE.Vector3(-1, 0, 0),
-  };
-  const padOrigin = new THREE.Vector3();
-  const padTip = new THREE.Vector3();
-
-  function layoutPads() {
-    const pads = document.querySelectorAll('.dpad');
-    if (!pads.length) return;
-    const samples = {};
-    for (const screenDir of ['up', 'down', 'left', 'right']) {
-      const world = screenToWorld(screenDir);
-      if (!world) return;
-      padOrigin.copy(lookTarget).project(camera);
-      padTip.copy(lookTarget).add(PAD_WORLD[world]).project(camera);
-      samples[screenDir] = { sx: padTip.x - padOrigin.x, sy: -(padTip.y - padOrigin.y) };
-    }
-    const up = samples.up;
-    const right = samples.right;
-    const upLen = Math.hypot(up.sx, up.sy) || 1;
-    const rightLen = Math.hypot(right.sx, right.sy) || 1;
-    const cos = Math.min(1, Math.max(-1, (up.sx * right.sx + up.sy * right.sy) / (upLen * rightLen)));
-    const angle = Math.acos(cos);
-    const tight = Math.max(0.5, Math.min(angle, Math.PI - angle));
-    for (const pad of pads) {
-      const button = pad.querySelector('button');
-      const size = button && button.offsetWidth > 0 ? button.offsetWidth : 58;
-      const radius = Math.max(size * 0.98, (size + 14) / (2 * Math.sin(tight / 2)));
-      const span = Math.ceil(radius * 2 + size + 16);
-      pad.style.width = `${span}px`;
-      pad.style.height = `${span}px`;
-      for (const node of pad.querySelectorAll('button')) {
-        const sample = samples[node.dataset.dir];
-        if (!sample) continue;
-        const len = Math.hypot(sample.sx, sample.sy) || 1;
-        const x = (sample.sx / len) * radius;
-        const y = (sample.sy / len) * radius;
-        const deg = Math.atan2(sample.sx, -sample.sy) * 180 / Math.PI;
-        node.style.transform = `translate(-50%, -50%) translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) rotate(${deg.toFixed(1)}deg)`;
-      }
-    }
   }
 
   function screenToWorld(screenDir) {
@@ -759,7 +808,6 @@ export function createView(canvas) {
     const pulse = reducedMotion ? 0.85 : 0.62 + Math.sin(titleTime * 5) * 0.38;
     selectMat.opacity = 0.42 + pulse * 0.45;
     cageMat.opacity = 0.7 + pulse * 0.3;
-    if (mode === 'board') layoutPads();
     renderer.render(scene, camera);
     requestAnimationFrame(loop);
   }

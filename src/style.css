@@ -347,10 +347,11 @@ button:focus-visible, input:focus-visible {
 
 .dpad {
   position: relative;
-  width: 188px;
-  height: 188px;
+  width: 196px;
+  height: 196px;
   margin: 4px auto 0;
   pointer-events: none;
+  transform: rotate(26deg);
 }
 
 .dpad button {
@@ -369,10 +370,10 @@ button:focus-visible, input:focus-visible {
   pointer-events: auto;
 }
 
-.dpad [data-dir="up"] { transform: translate(-50%, -50%) translate(28px, -58px) rotate(26deg); }
-.dpad [data-dir="right"] { transform: translate(-50%, -50%) translate(48px, 43px) rotate(132deg); }
-.dpad [data-dir="down"] { transform: translate(-50%, -50%) translate(-28px, 58px) rotate(-154deg); }
-.dpad [data-dir="left"] { transform: translate(-50%, -50%) translate(-48px, -43px) rotate(-48deg); }
+.dpad [data-dir="up"] { transform: translate(-50%, -50%) translate(0, -64px); }
+.dpad [data-dir="right"] { transform: translate(-50%, -50%) translate(64px, 0); }
+.dpad [data-dir="down"] { transform: translate(-50%, -50%) translate(0, 64px); }
+.dpad [data-dir="left"] { transform: translate(-50%, -50%) translate(-64px, 0); }
 
 .dpad button.pulse { animation: goldpulse 1.1s ease-in-out infinite; }
 
@@ -501,11 +502,13 @@ input[type="range"] { width: 100%; accent-color: var(--cinnabar); }
 
   .logo { letter-spacing: 0; }
 
+  .keys { display: none; }
+}
+
+@media (max-width: 879px) and (orientation: portrait) {
   #scene-title::before {
     background: linear-gradient(180deg, rgba(18, 16, 14, 0.82) 0%, rgba(18, 16, 14, 0.46) 34%, rgba(18, 16, 14, 0.05) 62%);
   }
-
-  .keys { display: none; }
 }
 
 @media (min-width: 880px) {
@@ -518,8 +521,12 @@ input[type="range"] { width: 100%; accent-color: var(--cinnabar); }
 }
 
 @media (max-height: 700px) {
-  .dpad { width: 168px; height: 168px; }
+  .dpad { width: 176px; height: 176px; }
   .dpad button { width: 52px; height: 52px; font-size: 20px; }
+  .dpad [data-dir="up"] { transform: translate(-50%, -50%) translate(0, -56px); }
+  .dpad [data-dir="right"] { transform: translate(-50%, -50%) translate(56px, 0); }
+  .dpad [data-dir="down"] { transform: translate(-50%, -50%) translate(0, 56px); }
+  .dpad [data-dir="left"] { transform: translate(-50%, -50%) translate(-56px, 0); }
   .title-copy { padding-top: calc(16px + env(safe-area-inset-top)); }
   .logo { font-size: clamp(36px, 11vw, 68px); }
 }
