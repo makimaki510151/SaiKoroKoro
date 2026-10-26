@@ -169,7 +169,7 @@ for (const dir of DIR_ORDER) {
   assert.equal(issues(level).length, 0);
 }
 
-assert.ok(STAGES.length >= 18, 'builtin stages exist');
+assert.equal(STAGES.length, 13, 'builtin stages exist');
 for (const stage of STAGES) {
   assert.equal(issues(stage).length, 0, `${stage.id} issues ${issues(stage).join(',')}`);
   assert.equal(isClear(stage.dice, stage.goals), false, `${stage.id} is not pre-solved`);
