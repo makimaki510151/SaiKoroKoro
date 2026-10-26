@@ -169,13 +169,17 @@ for (const dir of DIR_ORDER) {
   assert.equal(issues(level).length, 0);
 }
 
-assert.ok(STAGES.length >= 6, 'builtin stages exist');
+assert.ok(STAGES.length >= 18, 'builtin stages exist');
 for (const stage of STAGES) {
   assert.equal(issues(stage).length, 0, `${stage.id} issues ${issues(stage).join(',')}`);
   assert.equal(isClear(stage.dice, stage.goals), false, `${stage.id} is not pre-solved`);
   const solved = solve(stage, stage.moves);
   assert.ok(solved && solved.length >= 1, `${stage.id} is solvable within ${stage.moves}`);
   assert.ok(solved.length <= stage.moves);
+  const number = Number(String(stage.id).replace('stage-', ''));
+  if (number >= 9) {
+    assert.equal(solved.length, stage.moves, `${stage.id} move limit is the shortest solution`);
+  }
   const played = replay(stage, solved);
   assert.equal(played.ok && played.clear, true, `${stage.id} replay clears`);
   const shorter = solve(stage, solved.length - 1);
