@@ -552,6 +552,21 @@ input[type="range"] { width: 100%; accent-color: var(--cinnabar); }
 
   .sheet-head h1 { font-size: 22px; }
 
+}
+
+@media (min-width: 880px) {
+  .keys { display: block; }
+
+  #app[data-scene="editor"] #toast,
+  #app[data-scene="stages"] #toast {
+    left: 36%;
+  }
+}
+
+/* 横幅が880pxを超えるスマホ（Pro Max など）でも、高さが短い横画面は右に操作を置く。 */
+@media (orientation: landscape) and (max-height: 520px) {
+  .keys { display: none; }
+
   #scene-play .hud-bottom {
     top: auto;
     right: 0;
@@ -594,15 +609,6 @@ input[type="range"] { width: 100%; accent-color: var(--cinnabar); }
   #app[data-scene="play"] #toast {
     left: 28%;
     bottom: calc(12px + env(safe-area-inset-bottom));
-  }
-}
-
-@media (min-width: 880px) {
-  .keys { display: block; }
-
-  #app[data-scene="editor"] #toast,
-  #app[data-scene="stages"] #toast {
-    left: 36%;
   }
 }
 

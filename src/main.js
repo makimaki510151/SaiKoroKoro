@@ -113,7 +113,7 @@ function insets() {
     const topBox = document.querySelector('#scene-play .hud-top')?.getBoundingClientRect();
     const panel = document.querySelector('#scene-play .hud-bottom')?.getBoundingClientRect();
     const top = topBox && topBox.bottom > 0 ? Math.ceil(topBox.bottom) + 8 : 78;
-    const side = window.matchMedia('(max-width: 879px) and (orientation: landscape)').matches;
+    const side = window.matchMedia('(orientation: landscape) and (max-height: 520px)').matches;
     if (panel && panel.width > 8) {
       if (side) return { top, bottom: 12, left: 12, right: Math.ceil(w - panel.left) + 12 };
       return { top, bottom: Math.ceil(h - panel.top) + 10, left: 8, right: 8 };
