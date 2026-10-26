@@ -1,4 +1,4 @@
-/** Built-in stages. `expect` is the shortest line, checked by the logic tests. */
+/** Built-in stages. `expect` is a shortest line. Tests search unless `search` is false. */
 
 const F = {
   /** 1 is on the south face, toward the default camera. One north roll brings it to the top. */
@@ -26,6 +26,14 @@ function box(w, h, holes = []) {
 
 function die(x, z, faces) {
   return { x, z, faces: { ...faces } };
+}
+
+function span(xs, zs) {
+  const ground = [];
+  for (const z of zs) {
+    for (const x of xs) ground.push({ x, z });
+  }
+  return ground;
 }
 
 export const STAGES = [
@@ -192,6 +200,49 @@ export const STAGES = [
     goals: [{ x: 1, z: 1 }],
     dice: [die(1, 1, F.flipped)],
     expect: ['E:0', 'S:0', 'W:0', 'N:0', 'N:0', 'E:0', 'S:0', 'W:0'],
+  },
+  {
+    id: 'stage-19',
+    name: '入れ替わり',
+    blurb: '4つともゴールの上にいますが、上面は1ではありません。場所を入れ替え、4手で全員の1を上に。',
+    failHint: '同じマスに戻らなくて大丈夫です。隣のゴールへ渡してください。',
+    moves: 4,
+    ground: box(3, 3),
+    goals: [
+      { x: 0, z: 1 },
+      { x: 1, z: 0 },
+      { x: 1, z: 2 },
+      { x: 2, z: 1 },
+    ],
+    dice: [
+      die(2, 1, { top: 5, bottom: 2, east: 1, west: 6, south: 4, north: 3 }),
+      die(1, 0, F.right),
+      die(0, 1, { top: 3, bottom: 4, east: 5, west: 2, south: 6, north: 1 }),
+      die(1, 2, { top: 3, bottom: 4, east: 2, west: 5, south: 1, north: 6 }),
+    ],
+    expect: ['E:2+3', 'S:1+2', 'N:0+3', 'W:0+1'],
+  },
+  {
+    id: 'stage-20',
+    name: 'みんな集合',
+    blurb: '盤は4つの島に分かれています。各ダイスは内側のゴールへ。2つ同時に動かさないと8手では足りません。',
+    failHint: '離れた島のダイスも、同じ方向なら1手でまとめて転がせます。',
+    moves: 8,
+    search: false,
+    ground: span([-2, -1, 0, 2, 3, 4], [-1, 0, 1, 3, 4, 5]),
+    goals: [
+      { x: 0, z: 1 },
+      { x: 0, z: 3 },
+      { x: 2, z: 1 },
+      { x: 2, z: 3 },
+    ],
+    dice: [
+      die(4, 5, { top: 1, bottom: 6, east: 4, west: 3, south: 5, north: 2 }),
+      die(-2, 5, F.right),
+      die(-2, -1, { top: 5, bottom: 2, east: 1, west: 6, south: 4, north: 3 }),
+      die(4, -1, F.flipped),
+    ],
+    expect: ['E:1+2', 'S:2+3', 'W:0+3', 'W:0+3', 'N:0+1', 'E:1+2', 'S:2+3', 'N:0+1'],
   },
 ];
 

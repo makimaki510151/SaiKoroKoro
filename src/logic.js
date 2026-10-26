@@ -162,7 +162,6 @@ export function issues(level) {
   const out = [];
   if (!level.ground.length) out.push('地面を置いてください');
   if (!level.dice.length) out.push('ダイスを1つ以上置いてください');
-  if (level.dice.length > 4) out.push('ダイスは4つまでです');
   if (level.ground.length > 40) out.push('地面が多すぎます');
   if (!Number.isInteger(level.moves) || level.moves < 1 || level.moves > 30) {
     out.push('手数は1から30にしてください');

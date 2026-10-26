@@ -655,10 +655,6 @@ function onPick(x, y) {
       return;
     }
     if (level.dice.some((die) => die.x === hit.x && die.z === hit.z)) return;
-    if (level.dice.length >= 4) {
-      toast('ダイスは4つまでです');
-      return;
-    }
     mutate(() => {
       level.dice.push({ x: hit.x, z: hit.z, faces: { ...FRONT_FACES } });
       editor.selected = new Set([level.dice.length - 1]);

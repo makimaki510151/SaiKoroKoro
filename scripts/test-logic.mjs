@@ -169,10 +169,37 @@ for (const dir of DIR_ORDER) {
   assert.equal(issues(level).length, 0);
 }
 
-assert.equal(STAGES.length, 13, 'builtin stages exist');
+{
+  const many = {
+    name: 'たくさん',
+    moves: 1,
+    ground: Array.from({ length: 6 }, (_, i) => ({ x: i, z: 0 })),
+    goals: Array.from({ length: 6 }, (_, i) => ({ x: i, z: 0 })),
+    dice: Array.from({ length: 5 }, (_, i) => ({ x: i, z: 0, faces: identityFaces() })),
+  };
+  assert.equal(issues(many).length, 0, 'five dice are allowed');
+  const parsed = parseLevel(JSON.parse(serializeLevel(many)));
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.level.dice.length, 5);
+}
+
+function movesFromExpect(expect) {
+  return expect.map((item) => {
+    const [dir, selected] = item.split(':');
+    return { dir, selected: selected.split('+').map(Number) };
+  });
+}
+
+assert.equal(STAGES.length, 15, 'builtin stages exist');
 for (const stage of STAGES) {
   assert.equal(issues(stage).length, 0, `${stage.id} issues ${issues(stage).join(',')}`);
   assert.equal(isClear(stage.dice, stage.goals), false, `${stage.id} is not pre-solved`);
+  if (stage.search === false) {
+    assert.equal(stage.expect.length, stage.moves, `${stage.id} scripted line matches the move limit`);
+    const played = replay(stage, movesFromExpect(stage.expect));
+    assert.equal(played.ok && played.clear, true, `${stage.id} replay clears`);
+    continue;
+  }
   const solved = solve(stage, stage.moves);
   assert.ok(solved && solved.length >= 1, `${stage.id} is solvable within ${stage.moves}`);
   assert.ok(solved.length <= stage.moves);
@@ -195,6 +222,10 @@ for (const stage of STAGES) {
 
 console.log(`ok ${STAGES.length} stages`);
 for (const stage of STAGES) {
+  if (stage.search === false) {
+    console.log(`${stage.id} ${stage.name} scripted ${stage.expect.length}/${stage.moves} ${stage.expect.join(' ')}`);
+    continue;
+  }
   const solved = solve(stage, stage.moves);
   console.log(`${stage.id} ${stage.name} optimal ${solved.length}/${stage.moves} ${solved.map((m) => `${m.dir}[${m.selected}]`).join(' ')}`);
 }
