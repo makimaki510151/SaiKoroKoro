@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { DIR_DELTA, cloneFaces, identityFaces, rollFaces } from './logic.js';
 import { ROLL_TURN, quaternionForFaces } from './orient.js';
 
-const DIE_Y = 0.5;
+const DIE_SCALE = 0.78;
+const DIE_Y = DIE_SCALE / 2;
 const TITLE_ROLL = 0.72;
 const TITLE_PAUSE = 0.16;
 const AZIMUTHS = [0.58, 0.58 + Math.PI / 2, 0.58 + Math.PI, 0.58 + (3 * Math.PI) / 2];
@@ -156,9 +157,19 @@ export function createView(canvas) {
   const numberTex = {};
   for (let v = 1; v <= 6; v += 1) numberTex[v] = makeNumberTexture(String(v));
 
-  const dieGeo = new THREE.BoxGeometry(1, 1, 1);
+  const dieGeo = new THREE.BoxGeometry(DIE_SCALE, DIE_SCALE, DIE_SCALE);
   const edgeGeo = new THREE.EdgesGeometry(dieGeo);
+  const cageGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(DIE_SCALE * 1.08, DIE_SCALE * 1.08, DIE_SCALE * 1.08));
   const tileGeo = new THREE.BoxGeometry(0.94, 0.22, 0.94);
+  const shadowGeo = new THREE.PlaneGeometry(DIE_SCALE * 0.92, DIE_SCALE * 0.92);
+  const selectMat = new THREE.MeshBasicMaterial({
+    color: 0xf2c14b,
+    transparent: true,
+    opacity: 0.9,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  const cageMat = new THREE.LineBasicMaterial({ color: 0xffe7a3, transparent: true, opacity: 1 });
   const tileMat = new THREE.MeshStandardMaterial({ map: wood, roughness: 0.86, metalness: 0.02 });
   const edgeMat = new THREE.LineBasicMaterial({ color: 0x2a211c, transparent: true, opacity: 0.45 });
   const ghostMat = new THREE.MeshBasicMaterial({
@@ -295,14 +306,12 @@ export function createView(canvas) {
     const spin = new THREE.Group();
     const mats = faceOrder.map((name) => pipMat[name].clone());
     const mesh = new THREE.Mesh(dieGeo, mats);
-    mesh.scale.setScalar(0.98);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     const edges = new THREE.LineSegments(edgeGeo, edgeMat);
-    edges.scale.setScalar(0.98);
     spin.add(mesh, edges);
     const shadow = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.86, 0.86),
+      shadowGeo,
       new THREE.MeshBasicMaterial({ map: blob, transparent: true, depthWrite: false }),
     );
     shadow.rotation.x = -Math.PI / 2;
@@ -312,13 +321,20 @@ export function createView(canvas) {
     return { anchor, spin };
   }
 
-  function titlePivot(x, z, dir) {
-    const pivot = new THREE.Vector3(x, 0, z);
-    if (dir === 'E') pivot.x += 0.5;
-    else if (dir === 'W') pivot.x -= 0.5;
-    else if (dir === 'S') pivot.z += 0.5;
-    else pivot.z -= 0.5;
-    return pivot;
+  function rollPose(x, z, dir, t, pos) {
+    const h = DIE_Y;
+    const turn = ROLL_TURN[dir];
+    const step = DIR_DELTA[dir];
+    const signX = dir === 'E' ? 1 : dir === 'W' ? -1 : 0;
+    const signZ = dir === 'S' ? 1 : dir === 'N' ? -1 : 0;
+    const startPivot = new THREE.Vector3(x + signX * h, 0, z + signZ * h);
+    const endPivot = new THREE.Vector3(x + step.x - signX * h, 0, z + step.z - signZ * h);
+    const offset = new THREE.Vector3(x, DIE_Y, z).sub(startPivot);
+    const k = smooth(Math.min(1, Math.max(0, t)));
+    const pivot = startPivot.lerp(endPivot, k);
+    const spin = new THREE.Quaternion().setFromAxisAngle(turn.axis, turn.angle * k);
+    pos.copy(pivot).add(offset.applyQuaternion(spin));
+    return spin;
   }
 
   function restTitle(actor) {
@@ -327,12 +343,10 @@ export function createView(canvas) {
   }
 
   function rollTitle(actor, u) {
-    const turn = ROLL_TURN[actor.dir];
-    const pivot = titlePivot(actor.x, actor.z, actor.dir);
-    const q = new THREE.Quaternion().setFromAxisAngle(turn.axis, turn.angle * u);
-    const offset = new THREE.Vector3(actor.x, DIE_Y, actor.z).sub(pivot).applyQuaternion(q);
-    actor.anchor.position.copy(pivot).add(offset);
-    actor.spin.quaternion.copy(q).multiply(quaternionForFaces(actor.faces));
+    const pos = new THREE.Vector3();
+    const spin = rollPose(actor.x, actor.z, actor.dir, u, pos);
+    actor.anchor.position.copy(pos);
+    actor.spin.quaternion.copy(spin).multiply(quaternionForFaces(actor.faces));
   }
 
   function commitTitle(actor) {
@@ -363,7 +377,7 @@ export function createView(canvas) {
         }
       } else {
         const u = Math.min(1, actor.t / TITLE_ROLL);
-        rollTitle(actor, smooth(u));
+        rollTitle(actor, u);
         if (actor.t >= TITLE_ROLL) {
           commitTitle(actor);
           actor.phase = 'pause';
@@ -437,37 +451,35 @@ export function createView(canvas) {
     const spin = new THREE.Group();
     const mats = faceOrder.map((name) => pipMat[name].clone());
     const mesh = new THREE.Mesh(dieGeo, mats);
-    mesh.scale.setScalar(0.98);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.raycast = mesh.raycast.bind(mesh);
     const edges = new THREE.LineSegments(edgeGeo, edgeMat);
-    edges.scale.setScalar(0.98);
     edges.raycast = () => {};
-    spin.add(mesh, edges);
+    const cage = new THREE.LineSegments(cageGeo, cageMat);
+    cage.raycast = () => {};
+    cage.visible = false;
+    spin.add(mesh, edges, cage);
     const shadow = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.86, 0.86),
+      shadowGeo,
       new THREE.MeshBasicMaterial({ map: blob, transparent: true, depthWrite: false }),
     );
     shadow.rotation.x = -Math.PI / 2;
     shadow.position.y = -DIE_Y + 0.014;
     shadow.raycast = () => {};
-    const ring = new THREE.Mesh(
-      new THREE.RingGeometry(0.46, 0.55, 40),
-      new THREE.MeshBasicMaterial({ color: 0xe2b15a, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false }),
-    );
-    ring.rotation.x = -Math.PI / 2;
-    ring.position.y = -DIE_Y + 0.03;
-    ring.raycast = () => {};
-    ring.visible = false;
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.96, 0.96), selectMat);
+    plate.rotation.x = -Math.PI / 2;
+    plate.position.y = -DIE_Y + 0.02;
+    plate.raycast = () => {};
+    plate.visible = false;
     const spriteMat = new THREE.SpriteMaterial({ map: numberTex[1], transparent: true, depthTest: false });
     const label = new THREE.Sprite(spriteMat);
-    label.position.set(0, 0.78, 0);
+    label.position.set(0, DIE_Y + 0.32, 0);
     label.scale.set(0.42, 0.42, 0.42);
     label.visible = false;
     label.raycast = () => {};
-    anchor.add(spin, shadow, ring, label);
-    return { anchor, spin, mats, ring, label };
+    anchor.add(spin, shadow, plate, label);
+    return { anchor, spin, mats, plate, cage, label };
   }
 
   function syncDice(dice, goals, selected) {
@@ -482,9 +494,12 @@ export function createView(canvas) {
         m.transparent = false;
       });
       const on = selected.has(index);
-      obj.ring.visible = on;
-      const warm = on ? 0.18 : 0;
-      obj.mats.forEach((m) => m.emissive.setRGB(warm * 0.6, warm * 0.35, warm * 0.12));
+      obj.plate.visible = on;
+      obj.cage.visible = on;
+      obj.mats.forEach((m) => {
+        m.color.set(on ? 0xffffff : 0x9c948b);
+        m.emissive.setRGB(on ? 0.28 : 0, on ? 0.16 : 0, on ? 0.03 : 0);
+      });
       const ok = die.faces.top === 1 && goalSet.has(`${die.x},${die.z}`);
       obj.anchor.userData.ok = ok;
       obj.label.visible = showNumbers;
@@ -604,6 +619,52 @@ export function createView(canvas) {
     return null;
   }
 
+  const PAD_WORLD = {
+    N: new THREE.Vector3(0, 0, -1),
+    S: new THREE.Vector3(0, 0, 1),
+    E: new THREE.Vector3(1, 0, 0),
+    W: new THREE.Vector3(-1, 0, 0),
+  };
+  const padOrigin = new THREE.Vector3();
+  const padTip = new THREE.Vector3();
+
+  function layoutPads() {
+    const pads = document.querySelectorAll('.dpad');
+    if (!pads.length) return;
+    const samples = {};
+    for (const screenDir of ['up', 'down', 'left', 'right']) {
+      const world = screenToWorld(screenDir);
+      if (!world) return;
+      padOrigin.copy(lookTarget).project(camera);
+      padTip.copy(lookTarget).add(PAD_WORLD[world]).project(camera);
+      samples[screenDir] = { sx: padTip.x - padOrigin.x, sy: -(padTip.y - padOrigin.y) };
+    }
+    const up = samples.up;
+    const right = samples.right;
+    const upLen = Math.hypot(up.sx, up.sy) || 1;
+    const rightLen = Math.hypot(right.sx, right.sy) || 1;
+    const cos = Math.min(1, Math.max(-1, (up.sx * right.sx + up.sy * right.sy) / (upLen * rightLen)));
+    const angle = Math.acos(cos);
+    const tight = Math.max(0.5, Math.min(angle, Math.PI - angle));
+    for (const pad of pads) {
+      const button = pad.querySelector('button');
+      const size = button && button.offsetWidth > 0 ? button.offsetWidth : 58;
+      const radius = Math.max(size * 0.98, (size + 14) / (2 * Math.sin(tight / 2)));
+      const span = Math.ceil(radius * 2 + size + 16);
+      pad.style.width = `${span}px`;
+      pad.style.height = `${span}px`;
+      for (const node of pad.querySelectorAll('button')) {
+        const sample = samples[node.dataset.dir];
+        if (!sample) continue;
+        const len = Math.hypot(sample.sx, sample.sy) || 1;
+        const x = (sample.sx / len) * radius;
+        const y = (sample.sy / len) * radius;
+        const deg = Math.atan2(sample.sx, -sample.sy) * 180 / Math.PI;
+        node.style.transform = `translate(-50%, -50%) translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) rotate(${deg.toFixed(1)}deg)`;
+      }
+    }
+  }
+
   function screenToWorld(screenDir) {
     const forward = new THREE.Vector3();
     camera.getWorldDirection(forward);
@@ -642,17 +703,11 @@ export function createView(canvas) {
       obj.anchor.visible = !fall;
       return Promise.resolve();
     }
-    const turn = ROLL_TURN[dir];
-    const pivot = new THREE.Vector3(from.x, 0, from.z);
-    if (dir === 'E') pivot.x += 0.5;
-    else if (dir === 'W') pivot.x -= 0.5;
-    else if (dir === 'S') pivot.z += 0.5;
-    else pivot.z -= 0.5;
-    return tween(320, (t) => {
-      const q = new THREE.Quaternion().setFromAxisAngle(turn.axis, turn.angle * smooth(t));
-      const offset = new THREE.Vector3(from.x, DIE_Y, from.z).sub(pivot).applyQuaternion(q);
-      obj.anchor.position.copy(pivot).add(offset);
-      obj.spin.quaternion.copy(q).multiply(startQ);
+    const pos = new THREE.Vector3();
+    return tween(340, (t) => {
+      const spin = rollPose(from.x, from.z, dir, t, pos);
+      obj.anchor.position.copy(pos);
+      obj.spin.quaternion.copy(spin).multiply(startQ);
     }).then(async () => {
       obj.spin.quaternion.copy(endQ);
       obj.anchor.position.set(to.x, DIE_Y, to.z);
@@ -701,10 +756,10 @@ export function createView(canvas) {
         camAnim = null;
       }
     }
-    const pulse = 0.55 + Math.sin(titleTime * 5) * 0.4;
-    for (const obj of diceObjs) {
-      if (obj.ring.visible) obj.ring.material.opacity = pulse;
-    }
+    const pulse = reducedMotion ? 0.85 : 0.62 + Math.sin(titleTime * 5) * 0.38;
+    selectMat.opacity = 0.42 + pulse * 0.45;
+    cageMat.opacity = 0.7 + pulse * 0.3;
+    if (mode === 'board') layoutPads();
     renderer.render(scene, camera);
     requestAnimationFrame(loop);
   }

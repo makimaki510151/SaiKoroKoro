@@ -346,20 +346,19 @@ button:focus-visible, input:focus-visible {
 }
 
 .dpad {
-  display: grid;
-  grid-template-columns: 62px 62px 62px;
-  grid-template-areas: ". up ." "left . right" ". down .";
-  gap: 6px;
+  position: relative;
+  width: 188px;
+  height: 188px;
+  margin: 4px auto 0;
+  pointer-events: none;
 }
 
-.dpad [data-dir="up"] { grid-area: up; }
-.dpad [data-dir="left"] { grid-area: left; }
-.dpad [data-dir="right"] { grid-area: right; }
-.dpad [data-dir="down"] { grid-area: down; }
-
 .dpad button {
-  width: 62px;
-  height: 62px;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 58px;
+  height: 58px;
   border: 0;
   border-radius: 50%;
   background: #f4ecdf;
@@ -367,7 +366,13 @@ button:focus-visible, input:focus-visible {
   font-size: 22px;
   font-weight: 700;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+  pointer-events: auto;
 }
+
+.dpad [data-dir="up"] { transform: translate(-50%, -50%) translate(28px, -58px) rotate(26deg); }
+.dpad [data-dir="right"] { transform: translate(-50%, -50%) translate(48px, 43px) rotate(132deg); }
+.dpad [data-dir="down"] { transform: translate(-50%, -50%) translate(-28px, 58px) rotate(-154deg); }
+.dpad [data-dir="left"] { transform: translate(-50%, -50%) translate(-48px, -43px) rotate(-48deg); }
 
 .dpad button.pulse { animation: goldpulse 1.1s ease-in-out infinite; }
 
@@ -513,8 +518,8 @@ input[type="range"] { width: 100%; accent-color: var(--cinnabar); }
 }
 
 @media (max-height: 700px) {
-  .dpad { grid-template-columns: 52px 52px 52px; }
-  .dpad button { width: 52px; height: 52px; }
+  .dpad { width: 168px; height: 168px; }
+  .dpad button { width: 52px; height: 52px; font-size: 20px; }
   .title-copy { padding-top: calc(16px + env(safe-area-inset-top)); }
   .logo { font-size: clamp(36px, 11vw, 68px); }
 }
