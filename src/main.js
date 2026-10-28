@@ -61,6 +61,12 @@ function applySettings() {
   view.setReduced(!!settings.reduced);
   view.setFlip(!!settings.flip);
   view.setNumbers(!!settings.numbers);
+  app.classList.toggle('controls-side', !!settings.sideControls);
+  const layout = $('play-layout');
+  const side = !!settings.sideControls;
+  layout.textContent = side ? '操作を下' : '操作を右';
+  layout.setAttribute('aria-pressed', side ? 'true' : 'false');
+  layout.title = side ? '操作盤を下に戻します' : '操作盤を右に寄せて盤面を広げます';
   $('set-volume').value = String(Math.round((settings.volume ?? 0.7) * 100));
   $('set-numbers').checked = !!settings.numbers;
   $('set-reduced').checked = !!settings.reduced;
@@ -113,9 +119,9 @@ function insets() {
     const topBox = document.querySelector('#scene-play .hud-top')?.getBoundingClientRect();
     const panel = document.querySelector('#scene-play .hud-bottom')?.getBoundingClientRect();
     const top = topBox && topBox.bottom > 0 ? Math.ceil(topBox.bottom) + 8 : 78;
-    const side = window.matchMedia('(orientation: landscape) and (max-height: 520px)').matches;
     if (panel && panel.width > 8) {
-      if (side) return { top, bottom: 12, left: 12, right: Math.ceil(w - panel.left) + 12 };
+      const onSide = panel.left > w * 0.28 && panel.width < w * 0.72;
+      if (onSide) return { top, bottom: 12, left: 12, right: Math.ceil(w - panel.left) + 12 };
       return { top, bottom: Math.ceil(h - panel.top) + 10, left: 8, right: 8 };
     }
     return { top: 78, bottom: narrow ? 300 : 214, left: 0, right: 0 };
@@ -821,6 +827,14 @@ function bind() {
   $('play-undo').addEventListener('click', undoPlay);
   $('play-restart').addEventListener('click', restart);
   $('play-cam').addEventListener('click', () => view.cycleCamera());
+  $('play-layout').addEventListener('click', () => {
+    settings.sideControls = !settings.sideControls;
+    write();
+    applySettings();
+    audio.click();
+    boardToken = '';
+    presentFixed();
+  });
   $('ed-back').addEventListener('click', () => go('title'));
   $('ed-cam').addEventListener('click', () => view.cycleCamera());
   $('ed-undo').addEventListener('click', undoEditor);
