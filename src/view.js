@@ -515,17 +515,120 @@ export function createView(canvas) {
     });
   }
 
+  function arrowMark(dir, color) {
+    const mark = new THREE.Group();
+    const mat = new THREE.MeshBasicMaterial({ color });
+    const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.045, 0.1), mat);
+    shaft.position.x = -0.05;
+    const head = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.22, 3), mat);
+    head.rotation.z = -Math.PI / 2;
+    head.position.x = 0.22;
+    mark.add(shaft, head);
+    const yaw = { E: 0, S: Math.PI / 2, W: Math.PI, N: -Math.PI / 2 }[dir] ?? 0;
+    mark.rotation.y = yaw;
+    mark.position.y = 0.14;
+    mark.raycast = () => {};
+    shaft.raycast = () => {};
+    head.raycast = () => {};
+    return mark;
+  }
+
+  function flipMark() {
+    const mark = new THREE.Group();
+    const fore = arrowMark('E', 0x3b1460);
+    const back = arrowMark('W', 0x3b1460);
+    fore.position.z = -0.16;
+    back.position.z = 0.16;
+    mark.add(fore, back);
+    mark.position.y = 0;
+    mark.raycast = () => {};
+    return mark;
+  }
+
+  function crackMark() {
+    const mark = new THREE.Group();
+    const mat = new THREE.MeshBasicMaterial({ color: 0x3a2216 });
+    const specs = [
+      { w: 0.72, rot: 0.45, x: 0, z: 0 },
+      { w: 0.42, rot: -0.9, x: 0.1, z: 0.02 },
+      { w: 0.34, rot: 1.35, x: -0.06, z: -0.14 },
+    ];
+    for (const spec of specs) {
+      const piece = new THREE.Mesh(new THREE.BoxGeometry(spec.w, 0.045, 0.04), mat);
+      piece.rotation.y = spec.rot;
+      piece.position.set(spec.x, 0.14, spec.z);
+      piece.raycast = () => {};
+      mark.add(piece);
+    }
+    mark.raycast = () => {};
+    return mark;
+  }
+
+  async function animateCarry(moves, before, after, reduced) {
+    if (!moves?.length || reduced) return;
+    const tiles = new Map();
+    board.traverse((node) => {
+      if (node.userData?.kind === 'cell') tiles.set(`${node.userData.x},${node.userData.z}`, node);
+    });
+    await tween(280, (t) => {
+      const k = t * t * (3 - 2 * t);
+      for (const move of moves) {
+        const tile = tiles.get(`${move.x},${move.z}`);
+        if (!tile) continue;
+        tile.position.x = move.x + (move.nx - move.x) * k;
+        tile.position.z = move.z + (move.nz - move.z) * k;
+      }
+      before.forEach((die, index) => {
+        const next = after[index];
+        if (!next || (die.x === next.x && die.z === next.z)) return;
+        const obj = diceObjs[index];
+        if (!obj) return;
+        obj.anchor.position.set(die.x + (next.x - die.x) * k, DIE_Y, die.z + (next.z - die.z) * k);
+      });
+    });
+  }
+
+  async function animateCrumble(keys, reduced) {
+    if (!keys?.length) return;
+    const gone = new Set(keys);
+    const tiles = [];
+    board.traverse((node) => {
+      if (node.userData?.kind === 'cell' && gone.has(`${node.userData.x},${node.userData.z}`)) tiles.push(node);
+    });
+    if (!tiles.length || reduced) return;
+    await tween(240, (t) => {
+      for (const tile of tiles) {
+        tile.position.y = -0.11 - t * 0.9;
+        tile.material.transparent = true;
+        tile.material.opacity = 1 - t;
+      }
+    });
+  }
+
   function setWorld({ ground, goals, dice, ghosts, selected, numbers }) {
     showNumbers = !!numbers;
     clearGroup(board);
     diceObjs = [];
     const goalSet = new Set(goals.map((g) => `${g.x},${g.z}`));
     for (const cell of ground) {
-      const tile = new THREE.Mesh(tileGeo, tileMat);
+      const tint = cell.kind === 'slide' ? 0x3ecfc2 : cell.kind === 'flip' ? 0xc9a0ef : cell.kind === 'crumb' ? 0xe39a4a : 0xffffff;
+      const mat = cell.kind
+        ? new THREE.MeshStandardMaterial({
+          color: tint,
+          roughness: 0.62,
+          metalness: 0.04,
+          emissive: cell.kind === 'slide' ? 0x0c4f4a : cell.kind === 'flip' ? 0x3a1860 : 0x6a3a12,
+          emissiveIntensity: 0.55,
+        })
+        : tileMat;
+      const tile = new THREE.Mesh(tileGeo, mat);
       tile.position.set(cell.x, -0.11, cell.z);
       tile.receiveShadow = true;
       tile.castShadow = true;
       tile.userData = { kind: 'cell', x: cell.x, z: cell.z };
+      if (cell.kind === 'slide') tile.add(arrowMark(cell.dir, 0x083833));
+      if (cell.kind === 'flip') tile.add(flipMark());
+      if (cell.kind === 'crumb') tile.add(crackMark());
       board.add(tile);
       if (goalSet.has(`${cell.x},${cell.z}`)) {
         const disc = new THREE.Mesh(
@@ -826,6 +929,8 @@ export function createView(canvas) {
     pick,
     screenToWorld,
     animateRoll,
+    animateCarry,
+    animateCrumble,
     shake,
     setNumbers(v) {
       showNumbers = v;
