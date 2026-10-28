@@ -3,7 +3,7 @@ const KEY = 'saikorokoro-v1';
 function defaults() {
   const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   return {
-    settings: { volume: 0.7, numbers: false, reduced, flip: false, vibrate: true },
+    settings: { volume: 0.7, numbers: false, reduced, flip: false, vibrate: true, sideControls: false },
     cleared: {},
     custom: [],
     draft: null,
