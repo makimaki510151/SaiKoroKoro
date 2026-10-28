@@ -53,9 +53,12 @@
                   <li>残り手数が尽きても揃わなければ失敗です。戻すで1手返せます。</li>
                   <li>視点ボタンで、斜め上からの見る向きを切り替えられます。</li>
                   <li>「操作を右」で操作盤を画面の右へ寄せ、盤面を大きく表示できます。</li>
+                  <li>青緑の矢印の床は、手を打つたびに矢印のほうへ動きます。乗っているダイスも一緒に運ばれます。</li>
+                  <li>紫の床の上にいるダイスを動かすと、押した方向と逆に転がります。選択表示に「操作が逆」と出ます。</li>
+                  <li>ひびの入った床は、一度離れると崩れ、もう乗れません。</li>
                 </ul>
                 <h2>レベルデザイン</h2>
-                <p>地面、ゴール、ダイスの初期配置と制限手数を自由に作れます。出力できるのは、その初期配置から実際にクリアしたステージだけです。</p>
+                <p>地面、ゴール、ダイスの初期配置と制限手数を自由に作れます。動く床、反転する床、壊れる床も置けます。出力できるのは、その初期配置から実際にクリアしたステージだけです。</p>
               </div>
             </div>
           </div>
@@ -151,6 +154,9 @@
                 </div>
                 <div class="tools" id="ed-tools">
                   <button type="button" data-tool="ground">地面</button>
+                  <button type="button" data-tool="slide">うごく</button>
+                  <button type="button" data-tool="flip">反転</button>
+                  <button type="button" data-tool="crumb">壊れる</button>
                   <button type="button" data-tool="goal">ゴール</button>
                   <button type="button" data-tool="die">ダイス</button>
                   <button type="button" data-tool="roll">転がす</button>

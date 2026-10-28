@@ -430,6 +430,12 @@ body.reduce .dpad button.pulse { animation: none; box-shadow: 0 0 0 3px var(--go
 
 .tools button[aria-pressed="true"] { background: var(--cinnabar); color: white; }
 
+.tools button[data-tool="slide"] { box-shadow: inset 0 -3px 0 #1c7c74; }
+
+.tools button[data-tool="flip"] { box-shadow: inset 0 -3px 0 #6d4b93; }
+
+.tools button[data-tool="crumb"] { box-shadow: inset 0 -3px 0 #c47a3a; }
+
 .row { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
 
 input[type="text"] {

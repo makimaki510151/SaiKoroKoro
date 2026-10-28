@@ -36,6 +36,13 @@ function span(xs, zs) {
   return ground;
 }
 
+function tile(x, z, kind, dir) {
+  const cell = { x, z };
+  if (kind) cell.kind = kind;
+  if (dir) cell.dir = dir;
+  return cell;
+}
+
 export const STAGES = [
   {
     id: 'stage-1',
@@ -243,6 +250,194 @@ export const STAGES = [
       die(4, -1, F.flipped),
     ],
     expect: ['E:1+2', 'S:2+3', 'W:0+3', 'W:0+3', 'N:0+1', 'E:1+2', 'S:2+3', 'N:0+1'],
+  },
+  {
+    id: 'stage-21',
+    name: 'わたる',
+    blurb: '青緑の矢印の床は、手を打つたびに矢印のほうへ動きます。乗ると、一緒に運ばれます。',
+    failHint: '右の床に乗ると、ひとつ先まで運ばれます。そこから手前の床へ降りてください。',
+    moves: 3,
+    ground: [
+      tile(0, 0),
+      tile(1, 0, 'slide', 'E'),
+      tile(2, 1),
+      tile(3, 1),
+    ],
+    goals: [{ x: 3, z: 1 }],
+    dice: [die(0, 0, { top: 6, bottom: 1, north: 2, south: 5, east: 3, west: 4 })],
+    expect: ['E:0', 'S:0', 'E:0'],
+  },
+  {
+    id: 'stage-22',
+    name: 'のせる',
+    blurb: '矢印は奥を向いています。奥へ乗ると、さらに奥まで運ばれます。',
+    failHint: '運ばれたあと、右のゴールへ転がしてください。',
+    moves: 2,
+    ground: [
+      tile(1, 2),
+      tile(1, 1, 'slide', 'N'),
+      tile(2, 0),
+    ],
+    goals: [{ x: 2, z: 0 }],
+    dice: [die(1, 2, { top: 5, bottom: 2, west: 1, east: 6, south: 3, north: 4 })],
+    expect: ['N:0', 'E:0'],
+  },
+  {
+    id: 'stage-23',
+    name: 'よける',
+    blurb: '矢印の床は、あなたが別のマスを転がしているあいだにも進みます。動いた先を橋にしてゴールへ。',
+    failHint: '最初の一手で床は右へ動きます。下の列を右へ進み、動いた床からゴールへ降りてください。',
+    moves: 6,
+    ground: [
+      tile(0, 0),
+      tile(1, 0),
+      tile(2, 0),
+      tile(3, 0),
+      tile(4, 0),
+      tile(0, 1),
+      tile(2, 1, 'slide', 'E'),
+      tile(4, 1),
+    ],
+    goals: [{ x: 4, z: 0 }],
+    dice: [die(0, 0, F.right)],
+    expect: ['E:0', 'E:0', 'E:0', 'S:0', 'E:0', 'N:0'],
+  },
+  {
+    id: 'stage-24',
+    name: 'ぎゃく',
+    blurb: '紫の床の上では、押した方向と逆に転がります。奥を押すと手前へ進み、1が上に出ます。',
+    failHint: '奥のボタンで、手前のゴールへ転がります。',
+    moves: 1,
+    ground: [
+      tile(0, 0),
+      tile(0, 1, 'flip'),
+      tile(0, 2),
+    ],
+    goals: [{ x: 0, z: 2 }],
+    dice: [die(0, 1, F.back)],
+    expect: ['N:0'],
+  },
+  {
+    id: 'stage-25',
+    name: 'ひきかえす',
+    blurb: 'いったん紫の床に乗り、そこでは手前のボタンが奥へ進みます。',
+    failHint: '奥へ乗ってから、手前を押すとゴール方向へ転がります。',
+    moves: 2,
+    ground: [
+      tile(0, 0),
+      tile(0, 1, 'flip'),
+      tile(0, 2),
+    ],
+    goals: [{ x: 0, z: 0 }],
+    dice: [die(0, 2, { top: 6, bottom: 1, north: 2, south: 5, east: 3, west: 4 })],
+    expect: ['N:0', 'S:0'],
+  },
+  {
+    id: 'stage-26',
+    name: 'とおる',
+    blurb: '中央の紫の床では、奥のボタンが手前へ転がします。そこを通って右手前のゴールへ。',
+    failHint: '紫の床の上で奥を押すと、手前の列に出ます。',
+    moves: 4,
+    ground: [
+      tile(0, 0),
+      tile(1, 0),
+      tile(2, 0),
+      tile(1, 1, 'flip'),
+      tile(0, 2),
+      tile(1, 2),
+      tile(2, 2),
+    ],
+    goals: [{ x: 2, z: 2 }],
+    dice: [die(0, 0, { top: 6, bottom: 1, north: 2, south: 5, east: 3, west: 4 })],
+    expect: ['E:0', 'S:0', 'N:0', 'E:0'],
+  },
+  {
+    id: 'stage-27',
+    name: 'くずれる',
+    blurb: 'ひびの入った床は、一度離れると崩れます。右へ2回。戻る床はもうありません。',
+    failHint: '右へ2回で1が上になり、ゴールに着きます。',
+    moves: 2,
+    ground: [
+      tile(0, 0),
+      tile(1, 0, 'crumb'),
+      tile(2, 0),
+    ],
+    goals: [{ x: 2, z: 0 }],
+    dice: [die(0, 0, F.flipped)],
+    expect: ['E:0', 'E:0'],
+  },
+  {
+    id: 'stage-28',
+    name: 'もどせない',
+    blurb: '上面を1に戻すには一周します。ひびの床は離れた瞬間に消えるので、同じマスは二度通れません。',
+    failHint: '手前、右、奥、左の順です。',
+    moves: 4,
+    ground: [
+      tile(0, 0),
+      tile(1, 0, 'crumb'),
+      tile(0, 1),
+      tile(1, 1),
+    ],
+    goals: [{ x: 0, z: 0 }],
+    dice: [die(0, 0, F.back)],
+    expect: ['S:0', 'E:0', 'N:0', 'W:0'],
+  },
+  {
+    id: 'stage-29',
+    name: 'まわりみち',
+    blurb: '右のひび床は、渡ったあと崩れます。下の列を回って、1のまま最初のマスへ。',
+    failHint: '右へ2回で1になります。手前の列を左へ戻ってください。',
+    moves: 6,
+    ground: [
+      tile(0, 0),
+      tile(1, 0, 'crumb'),
+      tile(2, 0),
+      tile(2, 1),
+      tile(1, 1),
+      tile(0, 1),
+    ],
+    goals: [{ x: 0, z: 0 }],
+    dice: [die(0, 0, F.flipped)],
+    expect: ['E:0', 'E:0', 'S:0', 'W:0', 'W:0', 'N:0'],
+  },
+  {
+    id: 'stage-30',
+    name: '双子島',
+    blurb: '2つの島に分かれています。それぞれゴールの上ですが向きが違います。6手で両方の1を上に。',
+    failHint: '同じ方向にまとめて転がせます。島から落ちないよう、動かすダイスを選んでください。',
+    moves: 6,
+    ground: [
+      tile(0, 2), tile(0, 3), tile(1, 2), tile(1, 3),
+      tile(2, 0), tile(2, 1), tile(3, 0), tile(3, 1),
+    ],
+    goals: [
+      { x: 1, z: 2 },
+      { x: 2, z: 1 },
+    ],
+    dice: [
+      die(2, 1, { top: 2, bottom: 5, east: 6, west: 1, south: 4, north: 3 }),
+      die(1, 2, { top: 5, bottom: 2, east: 1, west: 6, south: 4, north: 3 }),
+    ],
+    expect: ['E:0', 'N:0', 'W:0+1', 'S:0+1', 'E:1', 'N:1'],
+  },
+  {
+    id: 'stage-31',
+    name: '整列',
+    blurb: '3つのダイスを3手でゴールへ。同時に動かせるときは、手数は1です。',
+    failHint: 'バラバラに動かす手と、3つ同時の手があります。',
+    moves: 3,
+    ground: span([1, 2, 3], [0, 1, 2, 3]),
+    goals: [
+      { x: 2, z: 1 },
+      { x: 2, z: 3 },
+      { x: 3, z: 2 },
+    ],
+    dice: [
+      die(2, 0, F.back),
+      die(1, 1, { top: 6, bottom: 1, east: 5, west: 2, south: 4, north: 3 }),
+      die(2, 2, F.back),
+    ],
+    expect: ['E:1', 'S:0+1+2', 'E:1'],
   },
 ];
 

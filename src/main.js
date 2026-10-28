@@ -3,13 +3,14 @@ import {
   canonical,
   cellKey,
   cloneDice,
+  cloneGround,
   groundSet,
   isClear,
   issues,
   parseLevel,
   rollFaces,
   serializeLevel,
-  step,
+  turn,
 } from './logic.js';
 import { createAudio } from './audio.js';
 import { loadSave, writeSave } from './storage.js';
@@ -45,9 +46,12 @@ const editor = {
 
 const TOOL_HELP = {
   ground: 'マスをタップして地面を置いたり消したりします。',
+  slide: '地面をタップするたびに、動く床の矢印が右、手前、左、奥、普通の地面の順で切り替わります。',
+  flip: '地面をタップして、操作が反転する紫の床を切り替えます。',
+  crumb: '地面をタップして、一度離れると壊れる床を切り替えます。',
   goal: '地面をタップしてゴールを切り替えます。',
   die: '地面にダイスを置き、ダイスをタップすると消します。',
-  roll: 'ダイスを選んで転がします。落ちる向きには動かせません。',
+  roll: 'ダイスを選んで転がします。床のギミックも本番と同じように動きます。',
   face: '選んだダイスを、その場で倒すように向きを変えます。',
 };
 
@@ -231,10 +235,22 @@ function ghostCells(level) {
 
 function playBoard() {
   return {
-    ground: session.level.ground,
+    ground: session.ground,
     goals: session.level.goals,
     dice: session.dice,
   };
+}
+
+function controlsReversed() {
+  if (!session) return false;
+  const flips = new Set(
+    session.ground.filter((cell) => cell.kind === 'flip').map((cell) => `${cell.x},${cell.z}`),
+  );
+  for (const index of session.selected) {
+    const die = session.dice[index];
+    if (die && flips.has(`${die.x},${die.z}`)) return true;
+  }
+  return false;
 }
 
 function present(level, selected, ghosts) {
@@ -372,6 +388,8 @@ function startSession(level, testing) {
     level: frozen,
     testing,
     dice: cloneDice(frozen.dice),
+    ground: cloneGround(frozen.ground),
+    initialGround: cloneGround(frozen.ground),
     selected: new Set(frozen.dice.map((_, i) => i)),
     movesLeft: frozen.moves,
     history: [],
@@ -395,7 +413,7 @@ function updateHud() {
   const moves = $('play-moves');
   moves.textContent = `残り ${session.movesLeft}`;
   moves.classList.toggle('warn', session.movesLeft <= 1);
-  $('play-selected').textContent = `選択 ${session.selected.size}/${session.dice.length}`;
+  $('play-selected').textContent = `選択 ${session.selected.size}/${session.dice.length}${controlsReversed() ? ' · 操作が逆' : ''}`;
   $('play-undo').disabled = !session.history.length || session.over === 'clear';
   for (const button of $('play-dpad').querySelectorAll('button')) {
     button.classList.toggle('pulse', session.hint && button.dataset.dir === level.hintDir && !settings.reduced);
@@ -461,6 +479,7 @@ function showFail() {
 function restart() {
   if (busy || !session) return;
   session.dice = cloneDice(session.level.dice);
+  session.ground = cloneGround(session.initialGround);
   session.movesLeft = session.level.moves;
   session.history = [];
   session.selected = new Set(session.dice.map((_, i) => i));
@@ -476,12 +495,14 @@ function undoPlay() {
   if (busy || !session?.history.length || session.over === 'clear') return;
   const prev = session.history.pop();
   session.dice = prev.dice;
+  session.ground = cloneGround(prev.ground);
   session.movesLeft = prev.movesLeft;
   session.selected = new Set(prev.selected);
   session.over = null;
   hideModal();
-  view.syncDice(session.dice, session.level.goals, session.selected);
+  boardToken = '';
   updateHud();
+  present(playBoard(), session.selected, null);
 }
 
 async function playRoll(screenDir) {
@@ -494,7 +515,7 @@ async function playRoll(screenDir) {
     toast('ダイスを選んでください');
     return;
   }
-  const result = step(session.dice, groundSet(session.level.ground), [...session.selected], dir);
+  const result = turn(session.dice, session.ground, [...session.selected], dir);
   if (result.reason === 'blocked') {
     busy = true;
     audio.blocked();
@@ -505,34 +526,58 @@ async function playRoll(screenDir) {
   busy = true;
   try {
     const before = cloneDice(session.dice);
-    session.history.push({ dice: before, movesLeft: session.movesLeft, selected: [...session.selected] });
+    session.history.push({
+      dice: before,
+      ground: cloneGround(session.ground),
+      movesLeft: session.movesLeft,
+      selected: [...session.selected],
+    });
     session.movesLeft -= 1;
-    session.dice = result.dice;
     audio.roll();
     buzz(12);
-    await view.animateRoll({
-      before,
-      after: result.dice,
-      dir,
-      falling: result.falling || [],
-      reduced: settings.reduced,
-    });
-    if (result.reason !== 'fall') view.syncDice(session.dice, session.level.goals, session.selected);
     if (result.reason === 'fall') {
+      await view.animateRoll({
+        before,
+        after: result.dice,
+        dir: result.actualDir,
+        falling: result.falling || [],
+        reduced: settings.reduced,
+      });
       audio.fail();
       buzz([30, 40, 70]);
       session.over = 'fall';
       showFail();
-    } else if (isClear(session.dice, session.level.goals)) {
-      audio.clear();
-      buzz([16, 24, 16]);
-      session.over = 'clear';
-      onCleared();
-    } else if (session.movesLeft <= 0) {
-      audio.fail();
-      buzz([40, 30, 70]);
-      session.over = 'limit';
-      showFail();
+    } else {
+      await view.animateRoll({
+        before,
+        after: result.rolled,
+        dir: result.actualDir,
+        falling: [],
+        reduced: settings.reduced,
+      });
+      if (result.slides.length) {
+        await view.animateCarry(result.slides, result.rolled, result.dice, settings.reduced);
+      }
+      if (result.crumbled.length) {
+        await view.animateCrumble(result.crumbled, settings.reduced);
+      }
+      session.dice = result.dice;
+      session.ground = cloneGround(result.ground);
+      boardToken = '';
+      present(playBoard(), session.selected, null);
+      const cleared = isClear(session.dice, session.level.goals);
+      if (result.crumbled.length && !cleared) toast('床が崩れました');
+      if (cleared) {
+        audio.clear();
+        buzz([16, 24, 16]);
+        session.over = 'clear';
+        onCleared();
+      } else if (session.movesLeft <= 0) {
+        audio.fail();
+        buzz([40, 30, 70]);
+        session.over = 'limit';
+        showFail();
+      }
     }
     updateHud();
   } finally {
@@ -648,6 +693,43 @@ function onPick(x, y) {
     });
     return;
   }
+  if (editor.tool === 'slide' || editor.tool === 'flip' || editor.tool === 'crumb') {
+    if (hit.kind === 'die') {
+      toast('先にダイスを外してください');
+      return;
+    }
+    const key = cellKey(hit.x, hit.z);
+    if (!ground.has(key)) {
+      toast('先に地面を置いてください');
+      return;
+    }
+    mutate(() => {
+      const cell = level.ground.find((item) => cellKey(item.x, item.z) === key);
+      if (!cell) return;
+      if (editor.tool === 'slide') {
+        const order = ['E', 'S', 'W', 'N'];
+        if (cell.kind !== 'slide') {
+          cell.kind = 'slide';
+          cell.dir = 'E';
+        } else {
+          const next = order.indexOf(cell.dir) + 1;
+          if (next >= order.length) {
+            delete cell.kind;
+            delete cell.dir;
+          } else cell.dir = order[next];
+        }
+        return;
+      }
+      if (cell.kind === editor.tool) {
+        delete cell.kind;
+        delete cell.dir;
+      } else {
+        cell.kind = editor.tool;
+        delete cell.dir;
+      }
+    });
+    return;
+  }
   if (editor.tool === 'die') {
     if (hit.kind === 'die') {
       mutate(() => {
@@ -686,7 +768,7 @@ async function editorDirection(screenDir) {
     return;
   }
   if (editor.tool !== 'roll') return;
-  const result = step(editor.level.dice, groundSet(editor.level.ground), [...editor.selected], dir);
+  const result = turn(editor.level.dice, editor.level.ground, [...editor.selected], dir);
   if (!result.ok) {
     audio.blocked();
     toast(result.reason === 'fall' ? 'そこには地面がありません' : 'ダイスが重なります');
@@ -696,11 +778,25 @@ async function editorDirection(screenDir) {
   }
   const before = cloneDice(editor.level.dice);
   pushEditor();
-  editor.level.dice = result.dice;
   busy = true;
   try {
     audio.roll();
-    await view.animateRoll({ before, after: result.dice, dir, falling: [], reduced: settings.reduced });
+    await view.animateRoll({
+      before,
+      after: result.rolled,
+      dir: result.actualDir,
+      falling: [],
+      reduced: settings.reduced,
+    });
+    if (result.slides.length) {
+      await view.animateCarry(result.slides, result.rolled, result.dice, settings.reduced);
+    }
+    if (result.crumbled.length) {
+      await view.animateCrumble(result.crumbled, settings.reduced);
+    }
+    editor.level.dice = result.dice;
+    editor.level.ground = cloneGround(result.ground);
+    boardToken = '';
     presentEditor(false);
     persistDraft();
   } finally {
