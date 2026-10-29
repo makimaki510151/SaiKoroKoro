@@ -241,16 +241,18 @@ function playBoard() {
   };
 }
 
-function controlsReversed() {
-  if (!session) return false;
+function reversalNote() {
+  if (!session?.selected.size) return '';
   const flips = new Set(
     session.ground.filter((cell) => cell.kind === 'flip').map((cell) => `${cell.x},${cell.z}`),
   );
+  let onFlip = 0;
   for (const index of session.selected) {
     const die = session.dice[index];
-    if (die && flips.has(`${die.x},${die.z}`)) return true;
+    if (die && flips.has(`${die.x},${die.z}`)) onFlip += 1;
   }
-  return false;
+  if (!onFlip) return '';
+  return onFlip === session.selected.size ? ' · 操作が逆' : ' · 反転の床だけ逆';
 }
 
 function present(level, selected, ghosts) {
@@ -413,7 +415,7 @@ function updateHud() {
   const moves = $('play-moves');
   moves.textContent = `残り ${session.movesLeft}`;
   moves.classList.toggle('warn', session.movesLeft <= 1);
-  $('play-selected').textContent = `選択 ${session.selected.size}/${session.dice.length}${controlsReversed() ? ' · 操作が逆' : ''}`;
+  $('play-selected').textContent = `選択 ${session.selected.size}/${session.dice.length}${reversalNote()}`;
   $('play-undo').disabled = !session.history.length || session.over === 'clear';
   for (const button of $('play-dpad').querySelectorAll('button')) {
     button.classList.toggle('pulse', session.hint && button.dataset.dir === level.hintDir && !settings.reduced);
@@ -540,6 +542,7 @@ async function playRoll(screenDir) {
         before,
         after: result.dice,
         dir: result.actualDir,
+        dirs: result.dirs,
         falling: result.falling || [],
         reduced: settings.reduced,
       });
@@ -552,6 +555,7 @@ async function playRoll(screenDir) {
         before,
         after: result.rolled,
         dir: result.actualDir,
+        dirs: result.dirs,
         falling: [],
         reduced: settings.reduced,
       });
@@ -785,6 +789,7 @@ async function editorDirection(screenDir) {
       before,
       after: result.rolled,
       dir: result.actualDir,
+      dirs: result.dirs,
       falling: [],
       reduced: settings.reduced,
     });

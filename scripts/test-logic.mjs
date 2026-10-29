@@ -242,6 +242,27 @@ for (const dir of DIR_ORDER) {
   const normal = turn(dice, ground, [0], 'W');
   assert.equal(normal.actualDir, 'E');
   assert.equal(normal.dice[0].x, 2);
+
+  const mixed = turn(
+    [
+      { x: 0, z: 0, faces: identityFaces() },
+      { x: 3, z: 0, faces: identityFaces() },
+    ],
+    [
+      { x: 0, z: 0 },
+      { x: 1, z: 0 },
+      { x: 2, z: 0 },
+      { x: 3, z: 0, kind: 'flip' },
+    ],
+    [0, 1],
+    'E',
+  );
+  assert.equal(mixed.ok, true);
+  assert.deepEqual(mixed.dirs, ['E', 'W']);
+  assert.deepEqual([mixed.dice[0].x, mixed.dice[0].z], [1, 0], 'a die on a plain floor keeps the pressed direction');
+  assert.deepEqual([mixed.dice[1].x, mixed.dice[1].z], [2, 0], 'a die on a flip floor rolls the other way in the same action');
+  assert.equal(mixed.dice[0].faces.top, 4);
+  assert.equal(mixed.dice[1].faces.top, 3);
 }
 
 {

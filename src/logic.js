@@ -114,15 +114,14 @@ function inBoard(x, z) {
   return x >= BOARD_MIN && x <= BOARD_MAX && z >= BOARD_MIN && z <= BOARD_MAX;
 }
 
-/** A selected die standing on a flip tile reverses the whole command. */
-export function commandDir(ground, dice, selected, dir) {
+/** Each selected die rolls `dir`, except a die standing on a flip tile, which rolls the other way. */
+function rollDirs(ground, dice, selected, dir) {
   const sel = selected instanceof Set ? selected : new Set(selected);
   const flips = new Set(ground.filter((cell) => cell.kind === 'flip').map((cell) => cellKey(cell.x, cell.z)));
-  for (const index of sel) {
-    const die = dice[index];
-    if (die && flips.has(cellKey(die.x, die.z))) return OPPOSITE[dir];
-  }
-  return dir;
+  return dice.map((die, index) => {
+    if (!sel.has(index) || !die) return null;
+    return flips.has(cellKey(die.x, die.z)) ? OPPOSITE[dir] : dir;
+  });
 }
 
 function slideDest(cell) {
@@ -248,15 +247,46 @@ function crumbledKeys(ground, before, after) {
 }
 
 /**
- * One player action. Flip tiles reverse the command before the roll.
+ * Roll each selected die in its own direction.
+ * `dirs[i]` is null when that die stays.
+ */
+function stepEach(dice, ground, dirs) {
+  if (!dirs.some(Boolean)) return { ok: false, reason: 'empty' };
+  const next = cloneDice(dice);
+  const falling = [];
+  dirs.forEach((face, index) => {
+    if (!face) return;
+    const delta = DIR_DELTA[face];
+    if (!delta) throw new Error(`unknown dir ${face}`);
+    const die = next[index];
+    die.x += delta.x;
+    die.z += delta.z;
+    die.faces = rollFaces(die.faces, face);
+    if (!ground.has(cellKey(die.x, die.z))) falling.push(index);
+  });
+  if (falling.length) return { ok: false, reason: 'fall', falling, dice: next, dirs };
+  const seen = new Set();
+  for (const die of next) {
+    const key = cellKey(die.x, die.z);
+    if (seen.has(key)) return { ok: false, reason: 'blocked' };
+    seen.add(key);
+  }
+  return { ok: true, dice: next, dirs };
+}
+
+/**
+ * One player action. A die on a flip tile rolls opposite the pressed direction;
+ * dice on other floors keep the pressed direction, even in the same action.
  * After a successful roll, slide tiles shuttle one cell. A blocked step
  * reverses the arrow and takes that opposite step, carrying any die that
  * landed on the tile. Crumb tiles left behind then disappear.
  */
 export function turn(dice, ground, selected, dir) {
-  const actualDir = commandDir(ground, dice, selected, dir);
-  const rolled = step(dice, groundSet(ground), selected, actualDir);
-  if (!rolled.ok) return { ...rolled, dir, actualDir, ground: cloneGround(ground) };
+  const dirs = rollDirs(ground, dice, selected, dir);
+  const rolled = stepEach(dice, groundSet(ground), dirs);
+  const used = dirs.filter(Boolean);
+  const actualDir = used.length && used.every((item) => item === used[0]) ? used[0] : dir;
+  if (!rolled.ok) return { ...rolled, dir, actualDir, dirs, ground: cloneGround(ground) };
   const slid = slideFloor(ground, rolled.dice);
   const gone = new Set(crumbledKeys(ground, dice, slid.dice));
   const nextGround = slid.ground.filter((cell) => !gone.has(cellKey(cell.x, cell.z)));
@@ -264,6 +294,7 @@ export function turn(dice, ground, selected, dir) {
     ok: true,
     dir,
     actualDir,
+    dirs,
     dice: cloneDice(slid.dice),
     rolled: cloneDice(rolled.dice),
     ground: nextGround,
