@@ -67,6 +67,8 @@ button:focus-visible, input:focus-visible {
   touch-action: none;
 }
 
+#c.orbiting { cursor: grabbing; }
+
 #layer { pointer-events: none; }
 
 .scene { display: none; position: absolute; inset: 0; }

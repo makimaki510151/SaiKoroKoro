@@ -7,6 +7,9 @@ const DIE_Y = DIE_SCALE / 2;
 const TITLE_ROLL = 0.72;
 const TITLE_PAUSE = 0.16;
 const AZIMUTHS = [0.58, 0.58 + Math.PI / 2, 0.58 + Math.PI, 0.58 + (3 * Math.PI) / 2];
+const ELEV_DEFAULT = Math.atan(1.18);
+const ELEV_MIN = 0.34;
+const ELEV_MAX = 1.25;
 
 const PIP = {
   1: [[0.5, 0.5]],
@@ -196,7 +199,8 @@ export function createView(canvas) {
   let mode = 'title';
   let showNumbers = false;
   let flip = false;
-  let camIndex = 0;
+  let azimuth = AZIMUTHS[0];
+  let elev = ELEV_DEFAULT;
   let center = new THREE.Vector3();
   let dist = 8;
   let insets = { top: 0, bottom: 0, left: 0, right: 0 };
@@ -218,9 +222,32 @@ export function createView(canvas) {
     else if (mode === 'title') frameTitle();
   }
 
+  function currentLook() {
+    if (!camAnim) return lookTarget;
+    const k = smooth(Math.min(1, camAnim.t));
+    return camAnim.fromTarget.clone().lerp(camAnim.nextTarget, k);
+  }
+
+  function nudgeOrbit(dAz, dElev) {
+    if (mode !== 'board') return;
+    const look = currentLook();
+    const rel = camera.position.clone().sub(look);
+    if (rel.lengthSq() > 1e-8) {
+      azimuth = Math.atan2(rel.x, rel.z);
+      elev = Math.atan2(rel.y, Math.hypot(rel.x, rel.z));
+    }
+    camAnim = null;
+    azimuth += dAz;
+    elev = Math.min(ELEV_MAX, Math.max(ELEV_MIN, elev + dElev));
+    placeCamera(false);
+  }
+
   function placeCamera(animate) {
-    const az = AZIMUTHS[(camIndex + (flip ? 2 : 0)) % 4];
-    const offset = new THREE.Vector3(Math.sin(az), 1.18, Math.cos(az)).normalize();
+    const offset = new THREE.Vector3(
+      Math.cos(elev) * Math.sin(azimuth),
+      Math.sin(elev),
+      Math.cos(elev) * Math.cos(azimuth),
+    );
     const dest = center.clone().addScaledVector(offset, dist);
     const w = canvas.clientWidth || window.innerWidth || 1;
     const h = canvas.clientHeight || window.innerHeight || 1;
@@ -852,8 +879,7 @@ export function createView(canvas) {
     if (screenDir === 'down') vector = forward.clone().negate();
     else if (screenDir === 'right') vector = right;
     else if (screenDir === 'left') vector = right.clone().negate();
-    if (Math.abs(vector.x) === Math.abs(vector.z)) return null;
-    if (Math.abs(vector.x) > Math.abs(vector.z)) return vector.x > 0 ? 'E' : 'W';
+    if (Math.abs(vector.x) >= Math.abs(vector.z)) return vector.x >= 0 ? 'E' : 'W';
     return vector.z > 0 ? 'S' : 'N';
   }
 
@@ -963,12 +989,23 @@ export function createView(canvas) {
       reducedMotion = !!v || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     },
     setFlip(v) {
-      flip = v;
+      const next = !!v;
+      if (next === flip) return;
+      flip = next;
+      azimuth += next ? Math.PI : -Math.PI;
       if (mode === 'board') placeCamera(false);
     },
     cycleCamera() {
-      camIndex = (camIndex + 1) % 4;
+      azimuth += Math.PI / 2;
       if (mode === 'board') placeCamera(true);
+    },
+    dragOrbit(dx, dy) {
+      const h = canvas.clientHeight || 800;
+      nudgeOrbit((-dx / h) * Math.PI * 1.35, (-dy / h) * Math.PI * 0.85);
+    },
+    wheelOrbit(deltaY) {
+      const capped = Math.max(-160, Math.min(160, deltaY));
+      nudgeOrbit(-capped * 0.0032, 0);
     },
     cameraBusy() {
       return !!camAnim;
