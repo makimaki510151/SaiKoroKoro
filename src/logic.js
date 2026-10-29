@@ -125,37 +125,72 @@ export function commandDir(ground, dice, selected, dir) {
   return dir;
 }
 
+function slideDest(cell) {
+  const delta = DIR_DELTA[cell.dir];
+  return { x: cell.x + delta.x, z: cell.z + delta.z };
+}
+
+/**
+ * Slide tiles shuttle. Each action they move one cell along their arrow.
+ * If that cell is off the board, solid ground, another slide, or would pile
+ * dice together, they reverse and take the opposite step instead.
+ */
 function slideFloor(ground, dice) {
-  const slides = ground.filter((cell) => cell.kind === 'slide' && DIR_DELTA[cell.dir]);
+  const slides = ground
+    .filter((cell) => cell.kind === 'slide' && DIR_DELTA[cell.dir])
+    .map((cell) => ({ ...cell }));
+  const initialDir = slides.map((cell) => cell.dir);
   const fixed = ground.filter((cell) => !(cell.kind === 'slide' && DIR_DELTA[cell.dir]));
   const fixedSet = groundSet(fixed);
   const moving = slides.map(() => true);
+  const bounced = slides.map(() => false);
+
+  const reject = (index) => {
+    if (!bounced[index]) {
+      slides[index].dir = OPPOSITE[slides[index].dir];
+      bounced[index] = true;
+    } else {
+      moving[index] = false;
+    }
+  };
+
   let guard = 0;
   let changed = true;
-  while (changed && guard < 8) {
+  while (changed && guard < 40) {
     guard += 1;
     changed = false;
-    const dests = slides.map((cell, index) => {
-      if (!moving[index]) return { x: cell.x, z: cell.z };
-      const delta = DIR_DELTA[cell.dir];
-      return { x: cell.x + delta.x, z: cell.z + delta.z };
-    });
+    const dests = slides.map((cell, index) => (
+      moving[index] ? slideDest(cell) : { x: cell.x, z: cell.z }
+    ));
     for (let index = 0; index < slides.length; index += 1) {
       if (!moving[index]) continue;
       const dest = dests[index];
       const key = cellKey(dest.x, dest.z);
-      const crowded = dests.some((other, otherIndex) => otherIndex !== index && other.x === dest.x && other.z === dest.z);
-      if (!inBoard(dest.x, dest.z) || fixedSet.has(key) || crowded) {
-        moving[index] = false;
-        changed = true;
+      let blocked = !inBoard(dest.x, dest.z) || fixedSet.has(key);
+      if (!blocked) {
+        for (let other = 0; other < slides.length; other += 1) {
+          if (other === index) continue;
+          const sameLanding = dests[other].x === dest.x && dests[other].z === dest.z;
+          const onItsCell = slides[other].x === dest.x && slides[other].z === dest.z;
+          const swaps = onItsCell
+            && dests[other].x === slides[index].x
+            && dests[other].z === slides[index].z;
+          if (sameLanding || swaps || (onItsCell && !moving[other])) {
+            blocked = true;
+            break;
+          }
+        }
       }
+      if (!blocked) continue;
+      reject(index);
+      changed = true;
     }
     if (changed) continue;
     const origin = new Map();
     slides.forEach((cell, index) => {
       if (moving[index]) origin.set(cellKey(cell.x, cell.z), dests[index]);
     });
-    const ends = dice.map((die) => origin.get(cellKey(die.x, die.z)) || die);
+    const ends = dice.map((die) => origin.get(cellKey(die.x, die.z)) || { x: die.x, z: die.z });
     const buckets = new Map();
     ends.forEach((end, dieIndex) => {
       const key = cellKey(end.x, end.z);
@@ -167,10 +202,9 @@ function slideFloor(ground, dice) {
       for (const dieIndex of group) {
         const key = cellKey(dice[dieIndex].x, dice[dieIndex].z);
         const slideIndex = slides.findIndex((cell, index) => moving[index] && cellKey(cell.x, cell.z) === key);
-        if (slideIndex >= 0) {
-          moving[slideIndex] = false;
-          changed = true;
-        }
+        if (slideIndex < 0) continue;
+        reject(slideIndex);
+        changed = true;
       }
     }
   }
@@ -181,11 +215,16 @@ function slideFloor(ground, dice) {
       nextGround.push({ ...cell });
       return;
     }
-    const delta = DIR_DELTA[cell.dir];
-    const nx = cell.x + delta.x;
-    const nz = cell.z + delta.z;
-    nextGround.push({ ...cell, x: nx, z: nz });
-    moves.push({ x: cell.x, z: cell.z, nx, nz, dir: cell.dir });
+    const dest = slideDest(cell);
+    nextGround.push({ ...cell, x: dest.x, z: dest.z });
+    moves.push({
+      x: cell.x,
+      z: cell.z,
+      nx: dest.x,
+      nz: dest.z,
+      dir: cell.dir,
+      turned: cell.dir !== initialDir[index],
+    });
   });
   const carry = new Map(moves.map((move) => [cellKey(move.x, move.z), move]));
   const nextDice = dice.map((die) => {
@@ -210,8 +249,9 @@ function crumbledKeys(ground, before, after) {
 
 /**
  * One player action. Flip tiles reverse the command before the roll.
- * After a successful roll, slide tiles shift one cell and carry dice that
- * landed on them, then crumb tiles that were left behind disappear.
+ * After a successful roll, slide tiles shuttle one cell. A blocked step
+ * reverses the arrow and takes that opposite step, carrying any die that
+ * landed on the tile. Crumb tiles left behind then disappear.
  */
 export function turn(dice, ground, selected, dir) {
   const actualDir = commandDir(ground, dice, selected, dir);
