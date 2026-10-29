@@ -533,6 +533,23 @@ export function createView(canvas) {
     return mark;
   }
 
+  function shuttleMark(dir) {
+    const mark = new THREE.Group();
+    const backDir = { E: 'W', W: 'E', S: 'N', N: 'S' }[dir];
+    const fore = arrowMark(dir, 0x083833);
+    const back = arrowMark(backDir, 0x146e66);
+    const axis = { E: [1, 0], W: [-1, 0], S: [0, 1], N: [0, -1] }[dir] || [1, 0];
+    fore.position.x += axis[0] * 0.08;
+    fore.position.z += axis[1] * 0.08;
+    back.position.x -= axis[0] * 0.2;
+    back.position.z -= axis[1] * 0.2;
+    back.scale.set(0.55, 0.55, 0.55);
+    mark.add(fore, back);
+    mark.userData.shuttle = true;
+    mark.raycast = () => {};
+    return mark;
+  }
+
   function flipMark() {
     const mark = new THREE.Group();
     const fore = arrowMark('E', 0x3b1460);
@@ -570,6 +587,13 @@ export function createView(canvas) {
     board.traverse((node) => {
       if (node.userData?.kind === 'cell') tiles.set(`${node.userData.x},${node.userData.z}`, node);
     });
+    for (const move of moves) {
+      if (!move.turned) continue;
+      const tile = board.children.find((node) => node.userData?.kind === 'cell' && node.userData.x === move.x && node.userData.z === move.z);
+      tile?.traverse((node) => {
+        if (node.userData?.shuttle) node.rotation.y += Math.PI;
+      });
+    }
     await tween(280, (t) => {
       const k = t * t * (3 - 2 * t);
       for (const move of moves) {
@@ -626,7 +650,7 @@ export function createView(canvas) {
       tile.receiveShadow = true;
       tile.castShadow = true;
       tile.userData = { kind: 'cell', x: cell.x, z: cell.z };
-      if (cell.kind === 'slide') tile.add(arrowMark(cell.dir, 0x083833));
+      if (cell.kind === 'slide') tile.add(shuttleMark(cell.dir));
       if (cell.kind === 'flip') tile.add(flipMark());
       if (cell.kind === 'crumb') tile.add(crackMark());
       board.add(tile);

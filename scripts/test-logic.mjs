@@ -209,8 +209,24 @@ for (const dir of DIR_ORDER) {
     [0],
     'E',
   );
-  assert.equal(blocked.dice[0].x, 1, 'a slide stops before solid ground');
-  assert.ok(blocked.ground.some((cell) => cell.kind === 'slide' && cell.x === 1));
+  assert.equal(blocked.dice[0].x, 1, 'a slide stays when both ways are walled in');
+  const stayed = blocked.ground.find((cell) => cell.kind === 'slide');
+  assert.equal(stayed.x, 1);
+  assert.equal(stayed.dir, 'W', 'a walled-in slide turns around for the next move');
+
+  const returned = turn(
+    [{ x: 2, z: 0, faces }],
+    [{ x: 2, z: 0 }, { x: 2, z: 1 }, { x: 1, z: 0, kind: 'slide', dir: 'E' }],
+    [0],
+    'W',
+  );
+  assert.equal(returned.ok, true);
+  assert.deepEqual([returned.dice[0].x, returned.dice[0].z], [0, 0], 'a blocked slide reverses and carries the die');
+  const shuttle = returned.ground.find((cell) => cell.kind === 'slide');
+  assert.deepEqual([shuttle.x, shuttle.z, shuttle.dir], [0, 0, 'W']);
+  assert.equal(returned.slides[0].turned, true);
+  const onward = turn(returned.dice, returned.ground, [0], 'S');
+  assert.equal(onward.ok, false, 'stepping off the returned tile into empty space falls');
 }
 
 {
