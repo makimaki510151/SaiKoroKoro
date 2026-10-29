@@ -857,12 +857,12 @@ export function createView(canvas) {
     return vector.z > 0 ? 'S' : 'N';
   }
 
-  async function animateRoll({ before, after, dir, falling, reduced }) {
+  async function animateRoll({ before, after, dir, dirs, falling, reduced }) {
     const fallSet = new Set(falling || []);
     const jobs = [];
     for (let i = 0; i < after.length; i += 1) {
       if (before[i].x === after[i].x && before[i].z === after[i].z) continue;
-      jobs.push(rollOne(i, before[i], after[i], dir, fallSet.has(i), reduced));
+      jobs.push(rollOne(i, before[i], after[i], dirs?.[i] || dir, fallSet.has(i), reduced));
     }
     await Promise.all(jobs);
   }
