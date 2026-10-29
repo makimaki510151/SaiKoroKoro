@@ -1095,12 +1095,35 @@ function bind() {
     }
   });
   let swipe = null;
+  let orbitDrag = null;
+  function endOrbit() {
+    orbitDrag = null;
+    canvas.classList.remove('orbiting');
+  }
   canvas.addEventListener('pointerdown', (event) => {
+    if (event.button === 2 && (scene === 'play' || scene === 'editor')) {
+      orbitDrag = { x: event.clientX, y: event.clientY, id: event.pointerId };
+      try { canvas.setPointerCapture(event.pointerId); } catch { /* pointer already released */ }
+      canvas.classList.add('orbiting');
+      return;
+    }
     if (event.button !== 0) return;
     swipe = { x: event.clientX, y: event.clientY, id: event.pointerId };
     canvas.setPointerCapture(event.pointerId);
   });
+  canvas.addEventListener('pointermove', (event) => {
+    if (!orbitDrag || orbitDrag.id !== event.pointerId) return;
+    const dx = event.clientX - orbitDrag.x;
+    const dy = event.clientY - orbitDrag.y;
+    orbitDrag.x = event.clientX;
+    orbitDrag.y = event.clientY;
+    if (dx || dy) view.dragOrbit(dx, dy);
+  });
   canvas.addEventListener('pointerup', (event) => {
+    if (orbitDrag && orbitDrag.id === event.pointerId && event.button === 2) {
+      endOrbit();
+      return;
+    }
     if (!swipe || swipe.id !== event.pointerId) return;
     const dx = event.clientX - swipe.x;
     const dy = event.clientY - swipe.y;
@@ -1109,6 +1132,19 @@ function bind() {
       onScreenDir(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
     } else onPick(event.clientX, event.clientY);
   });
+  canvas.addEventListener('pointercancel', (event) => {
+    if (orbitDrag && orbitDrag.id === event.pointerId) endOrbit();
+    if (swipe && swipe.id === event.pointerId) swipe = null;
+  });
+  canvas.addEventListener('wheel', (event) => {
+    if (scene !== 'play' && scene !== 'editor') return;
+    if (event.ctrlKey) return;
+    event.preventDefault();
+    let dy = event.deltaY;
+    if (event.deltaMode === 1) dy *= 16;
+    else if (event.deltaMode === 2) dy *= canvas.clientHeight || 800;
+    if (dy) view.wheelOrbit(dy);
+  }, { passive: false });
   canvas.addEventListener('contextmenu', (event) => event.preventDefault());
   window.addEventListener('resize', () => {
     view.resize();
