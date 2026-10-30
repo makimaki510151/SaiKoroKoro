@@ -137,7 +137,7 @@ export function createView(canvas) {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 80);
+  const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 240);
   const hemi = new THREE.HemisphereLight(0xfff4e4, 0x3a2c24, 1.35);
   const sun = new THREE.DirectionalLight(0xfff6ea, 2.6);
   sun.position.set(4.5, 9, 3.2);
@@ -242,6 +242,28 @@ export function createView(canvas) {
     placeCamera(false);
   }
 
+  function viewFit() {
+    const w = canvas.clientWidth || window.innerWidth || 1;
+    const h = canvas.clientHeight || window.innerHeight || 1;
+    let top = Math.max(0, insets.top);
+    let bottom = Math.max(0, insets.bottom);
+    let left = Math.max(0, insets.left);
+    let right = Math.max(0, insets.right);
+    const sumH = top + bottom;
+    if (sumH > h * 0.82 && sumH > 0) {
+      const scale = (h * 0.82) / sumH;
+      top *= scale;
+      bottom *= scale;
+    }
+    const sumW = left + right;
+    if (sumW > w * 0.82 && sumW > 0) {
+      const scale = (w * 0.82) / sumW;
+      left *= scale;
+      right *= scale;
+    }
+    return { top, bottom, left, right, w, h };
+  }
+
   function placeCamera(animate) {
     const offset = new THREE.Vector3(
       Math.cos(elev) * Math.sin(azimuth),
@@ -249,13 +271,12 @@ export function createView(canvas) {
       Math.cos(elev) * Math.cos(azimuth),
     );
     const dest = center.clone().addScaledVector(offset, dist);
-    const w = canvas.clientWidth || window.innerWidth || 1;
-    const h = canvas.clientHeight || window.innerHeight || 1;
+    const fit = viewFit();
     const vFov = (camera.fov * Math.PI) / 180;
     const worldH = 2 * Math.tan(vFov / 2) * dist;
-    const worldW = worldH * (w / h);
-    const panX = ((insets.left - insets.right) / 2 / w) * worldW;
-    const panY = ((insets.top - insets.bottom) / 2 / h) * worldH;
+    const worldW = worldH * (fit.w / fit.h);
+    const panX = ((fit.left - fit.right) / 2 / fit.w) * worldW;
+    const panY = ((fit.top - fit.bottom) / 2 / fit.h) * worldH;
     basis.position.copy(dest);
     basis.up.set(0, 1, 0);
     basis.lookAt(center);
@@ -300,16 +321,17 @@ export function createView(canvas) {
       center.set((minX + maxX) / 2, 0.15, (minZ + maxZ) / 2);
       const span = Math.max(maxX - minX + 1, maxZ - minZ + 1, 2);
       const radius = span * 0.78;
-      const w = canvas.clientWidth || window.innerWidth || 1;
-      const h = canvas.clientHeight || window.innerHeight || 1;
+      const fit = viewFit();
       const fov = (camera.fov * Math.PI) / 180;
       const distH = radius / Math.tan(fov / 2);
-      const hFov = 2 * Math.atan(Math.tan(fov / 2) * (w / h));
+      const hFov = 2 * Math.atan(Math.tan(fov / 2) * (fit.w / fit.h));
       const distW = radius / Math.tan(hFov / 2);
-      const freeW = Math.max(0.42, 1 - (insets.left + insets.right) / w);
-      const freeH = Math.max(0.42, 1 - (insets.top + insets.bottom) / h);
-      dist = (Math.max(distH, distW) * 1.18) / Math.min(freeW, freeH);
+      const freeW = Math.max(0.18, 1 - (fit.left + fit.right) / fit.w);
+      const freeH = Math.max(0.18, 1 - (fit.top + fit.bottom) / fit.h);
+      dist = (Math.max(distH, distW) * 1.12) / Math.min(freeW, freeH);
     }
+    camera.far = Math.max(80, dist + 48);
+    camera.updateProjectionMatrix();
     const s = Math.max(4, dist);
     const cam = sun.shadow.camera;
     cam.left = -s;
@@ -317,7 +339,7 @@ export function createView(canvas) {
     cam.top = s;
     cam.bottom = -s;
     cam.near = 0.5;
-    cam.far = dist + 20;
+    cam.far = dist + 48;
     cam.updateProjectionMatrix();
     sun.position.set(center.x + 4.2, 9, center.z + 2.6);
     sun.target.position.copy(center);
