@@ -335,7 +335,7 @@ function movesFromExpect(expect) {
   });
 }
 
-assert.equal(STAGES.length, 26, 'builtin stages exist');
+assert.equal(STAGES.length, 27, 'builtin stages exist');
 for (const stage of STAGES) {
   assert.equal(issues(stage).length, 0, `${stage.id} issues ${issues(stage).join(',')}`);
   assert.equal(isClear(stage.dice, stage.goals), false, `${stage.id} is not pre-solved`);
