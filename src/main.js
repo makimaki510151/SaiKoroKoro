@@ -646,6 +646,21 @@ function toggleSelect(set, index) {
   audio.select();
 }
 
+function invertSelection(set, count) {
+  const next = new Set();
+  for (let i = 0; i < count; i += 1) if (!set.has(i)) next.add(i);
+  return next;
+}
+
+function syncZoomButton(level) {
+  const close = level < 0.58;
+  for (const id of ['play-zoom', 'ed-zoom']) {
+    const button = $(id);
+    button.textContent = close ? '標準' : '拡大';
+    button.setAttribute('aria-pressed', level < 0.92 ? 'true' : 'false');
+  }
+}
+
 function onPick(x, y) {
   if (!modal.hidden || busy) return;
   const hit = view.pick(x, y);
@@ -925,9 +940,17 @@ function bind() {
     view.syncDice(session.dice, session.level.goals, session.selected);
     updateHud();
   });
+  $('play-invert').addEventListener('click', () => {
+    if (!session) return;
+    session.selected = invertSelection(session.selected, session.dice.length);
+    view.syncDice(session.dice, session.level.goals, session.selected);
+    updateHud();
+    audio.select();
+  });
   $('play-undo').addEventListener('click', undoPlay);
   $('play-restart').addEventListener('click', restart);
   $('play-cam').addEventListener('click', () => view.cycleCamera());
+  $('play-zoom').addEventListener('click', () => syncZoomButton(view.cycleZoom()));
   $('play-layout').addEventListener('click', () => {
     settings.sideControls = !settings.sideControls;
     write();
@@ -938,6 +961,7 @@ function bind() {
   });
   $('ed-back').addEventListener('click', () => go('title'));
   $('ed-cam').addEventListener('click', () => view.cycleCamera());
+  $('ed-zoom').addEventListener('click', () => syncZoomButton(view.cycleZoom()));
   $('ed-undo').addEventListener('click', undoEditor);
   $('ed-reset').addEventListener('click', () => {
     showModal({
@@ -986,6 +1010,11 @@ function bind() {
   $('ed-none').addEventListener('click', () => {
     editor.selected = new Set();
     view.syncDice(editor.level.dice, editor.level.goals, editor.selected);
+  });
+  $('ed-invert').addEventListener('click', () => {
+    editor.selected = invertSelection(editor.selected, editor.level.dice.length);
+    view.syncDice(editor.level.dice, editor.level.goals, editor.selected);
+    audio.select();
   });
   $('ed-test').addEventListener('click', () => {
     const problems = issues(editor.level);
@@ -1096,11 +1125,24 @@ function bind() {
   });
   let swipe = null;
   let orbitDrag = null;
+  let pinch = null;
+  const touches = new Map();
   function endOrbit() {
     orbitDrag = null;
     canvas.classList.remove('orbiting');
   }
+  function pinchDistance() {
+    const pts = [...touches.values()];
+    if (pts.length < 2) return 0;
+    return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+  }
   canvas.addEventListener('pointerdown', (event) => {
+    if (event.button === 0) touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (touches.size >= 2 && (scene === 'play' || scene === 'editor' || scene === 'stages')) {
+      swipe = null;
+      pinch = { dist: pinchDistance() };
+      return;
+    }
     if (event.button === 2 && (scene === 'play' || scene === 'editor')) {
       orbitDrag = { x: event.clientX, y: event.clientY, id: event.pointerId };
       try { canvas.setPointerCapture(event.pointerId); } catch { /* pointer already released */ }
@@ -1109,9 +1151,18 @@ function bind() {
     }
     if (event.button !== 0) return;
     swipe = { x: event.clientX, y: event.clientY, id: event.pointerId };
-    canvas.setPointerCapture(event.pointerId);
+    try { canvas.setPointerCapture(event.pointerId); } catch { /* pointer already released */ }
   });
   canvas.addEventListener('pointermove', (event) => {
+    if (touches.has(event.pointerId)) {
+      touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    }
+    if (pinch && touches.size >= 2) {
+      const next = pinchDistance();
+      if (pinch.dist > 12 && next > 12) syncZoomButton(view.scaleZoom(pinch.dist / next));
+      pinch.dist = next;
+      return;
+    }
     if (!orbitDrag || orbitDrag.id !== event.pointerId) return;
     const dx = event.clientX - orbitDrag.x;
     const dy = event.clientY - orbitDrag.y;
@@ -1120,6 +1171,12 @@ function bind() {
     if (dx || dy) view.dragOrbit(dx, dy);
   });
   canvas.addEventListener('pointerup', (event) => {
+    touches.delete(event.pointerId);
+    if (pinch) {
+      if (touches.size < 2) pinch = null;
+      swipe = null;
+      return;
+    }
     if (orbitDrag && orbitDrag.id === event.pointerId && event.button === 2) {
       endOrbit();
       return;
@@ -1133,6 +1190,8 @@ function bind() {
     } else onPick(event.clientX, event.clientY);
   });
   canvas.addEventListener('pointercancel', (event) => {
+    touches.delete(event.pointerId);
+    if (pinch && touches.size < 2) pinch = null;
     if (orbitDrag && orbitDrag.id === event.pointerId) endOrbit();
     if (swipe && swipe.id === event.pointerId) swipe = null;
   });

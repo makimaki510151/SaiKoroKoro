@@ -203,6 +203,8 @@ export function createView(canvas) {
   let elev = ELEV_DEFAULT;
   let center = new THREE.Vector3();
   let dist = 8;
+  let baseDist = 8;
+  let zoom = 1;
   let insets = { top: 0, bottom: 0, left: 0, right: 0 };
   let titleTime = 0;
   let titleActors = [];
@@ -306,7 +308,8 @@ export function createView(canvas) {
     insets = nextInsets || insets;
     if (!cells.length) {
       center.set(1.5, 0.2, 1.5);
-      dist = 8;
+      baseDist = 8;
+      dist = baseDist * zoom;
     } else {
       let minX = Infinity;
       let maxX = -Infinity;
@@ -328,7 +331,8 @@ export function createView(canvas) {
       const distW = radius / Math.tan(hFov / 2);
       const freeW = Math.max(0.18, 1 - (fit.left + fit.right) / fit.w);
       const freeH = Math.max(0.18, 1 - (fit.top + fit.bottom) / fit.h);
-      dist = (Math.max(distH, distW) * 1.12) / Math.min(freeW, freeH);
+      baseDist = (Math.max(distH, distW) * 1.12) / Math.min(freeW, freeH);
+      dist = baseDist * zoom;
     }
     camera.far = Math.max(80, dist + 48);
     camera.updateProjectionMatrix();
@@ -1028,6 +1032,23 @@ export function createView(canvas) {
     wheelOrbit(deltaY) {
       const capped = Math.max(-160, Math.min(160, deltaY));
       nudgeOrbit(-capped * 0.0032, 0);
+    },
+    scaleZoom(factor) {
+      zoom = Math.min(1.08, Math.max(0.42, zoom * factor));
+      dist = baseDist * zoom;
+      if (mode === 'board') placeCamera(false);
+      return zoom;
+    },
+    cycleZoom() {
+      const steps = [1, 0.72, 0.48];
+      let nearest = 0;
+      steps.forEach((step, index) => {
+        if (Math.abs(step - zoom) < Math.abs(steps[nearest] - zoom)) nearest = index;
+      });
+      zoom = steps[(nearest + 1) % steps.length];
+      dist = baseDist * zoom;
+      if (mode === 'board') placeCamera(false);
+      return zoom;
     },
     cameraBusy() {
       return !!camAnim;

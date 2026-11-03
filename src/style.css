@@ -322,10 +322,20 @@ button:focus-visible, input:focus-visible {
 .hud-title p:empty { display: none; }
 
 #scene-play .hud-title p {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  display: block;
+  max-height: 4.8em;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  pointer-events: auto;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+#scene-play .hud-title p::-webkit-scrollbar { width: 8px; }
+
+#scene-play .hud-title p::-webkit-scrollbar-thumb {
+  background: rgba(246, 240, 230, 0.45);
+  border-radius: 99px;
 }
 
 #scene-play .hud-title p:empty { display: none; }
@@ -547,7 +557,7 @@ input[type="range"] { width: 100%; accent-color: var(--cinnabar); }
     margin-top: 10px;
   }
 
-  #scene-play .hud-title p { -webkit-line-clamp: 2; }
+  #scene-play .hud-title p { max-height: 4.4em; }
 
   #scene-play .dpad button { font-size: 28px; }
 
@@ -627,7 +637,7 @@ input[type="range"] { width: 100%; accent-color: var(--cinnabar); }
     padding: 0 8px calc(8px + env(safe-area-inset-bottom)) 0;
   }
 
-  #scene-play .hud-title p { -webkit-line-clamp: 2; }
+  #scene-play .hud-title p { max-height: 3.3em; }
 
   #scene-play .hud-actions {
     display: grid;
