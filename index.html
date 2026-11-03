@@ -46,13 +46,14 @@
                 </div>
                 <p>同じ方向に2回転がすと、上面は最初の裏面になります。</p>
                 <ul>
-                  <li>ダイスをタップして選びます。最初は全部選ばれています。</li>
+                  <li>ダイスをタップして選びます。最初は全部選ばれています。反転で、選んでいるダイスと選んでいないダイスを入れ替えます。</li>
                   <li>方向ボタン、スワイプ、矢印キーで、選んだダイスを同じ方向へ転がします。</li>
                   <li>複数を同時に転がしても、手数は 1 です。別々の方向へは同時に転がせません。</li>
                   <li>地面のないマスへ転がすと落下して失敗です。</li>
                   <li>残り手数が尽きても揃わなければ失敗です。戻すで1手返せます。</li>
                   <li>視点ボタン、右ドラッグ、マウスホイールで、斜め上からの見る向きを変えられます。右ドラッグの上下は傾きです。方向ボタンは、画面の上下左右へ転がします。</li>
-                  <li>「操作を右」で操作盤を画面の右へ寄せ、盤面を大きく表示できます。</li>
+                  <li>「操作を右」で操作盤を画面の右へ寄せ、盤面を大きく表示できます。拡大ボタンか、2本指のピンチでも盤面を大きくできます。</li>
+                  <li>お題の下の説明は、画面に収まらないときはその欄をスクロールして読めます。</li>
                   <li>青緑の床は、太い矢印のほうへ手を打つたびに1マス動きます。先がふさがると反対へ戻ります。乗っているダイスも一緒に運ばれます。</li>
                   <li>紫の床の上にいるダイスだけ、押した方向と逆に転がります。普通の床のダイスは、同時に動かしても押した方向のままです。</li>
                   <li>ひびの入った床は、一度離れると崩れ、もう乗れません。</li>
@@ -115,9 +116,11 @@
               <span id="play-selected">選択 0</span>
               <button type="button" class="btn tiny" id="play-all">すべて</button>
               <button type="button" class="btn tiny" id="play-none">解除</button>
+              <button type="button" class="btn tiny" id="play-invert" aria-label="選択を反転">反転</button>
               <button type="button" class="btn tiny" id="play-undo">戻す</button>
               <button type="button" class="btn tiny" id="play-restart">最初から</button>
               <button type="button" class="btn tiny" id="play-cam">視点</button>
+              <button type="button" class="btn tiny" id="play-zoom" aria-pressed="false">拡大</button>
               <button type="button" class="btn tiny" id="play-layout" aria-pressed="false">操作を右</button>
             </div>
             <div class="dpad" id="play-dpad">
@@ -135,6 +138,7 @@
             <button type="button" class="btn tiny" id="ed-back">タイトル</button>
             <div class="hud-title"><strong>レベルデザイン</strong></div>
             <button type="button" class="btn tiny" id="ed-cam">視点</button>
+            <button type="button" class="btn tiny" id="ed-zoom" aria-pressed="false">拡大</button>
           </header>
           <div class="dock dock-right">
             <div class="paper sheet">
@@ -166,6 +170,7 @@
                 <div class="row" id="ed-select-row">
                   <button type="button" class="btn tiny" id="ed-all">すべて</button>
                   <button type="button" class="btn tiny" id="ed-none">解除</button>
+                  <button type="button" class="btn tiny" id="ed-invert" aria-label="選択を反転">反転</button>
                 </div>
                 <div class="dpad" id="ed-dpad" hidden>
                   <button type="button" data-dir="up" aria-label="奥">↑</button>
